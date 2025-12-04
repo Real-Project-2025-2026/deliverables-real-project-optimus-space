@@ -48,7 +48,7 @@ export default function Auth() {
             <div className="w-12 h-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
               <Building2 className="w-6 h-6" />
             </div>
-            <span className="text-2xl font-bold">SpaceShare</span>
+            <span className="text-2xl font-bold">spacefindr</span>
           </Link>
 
           <h1 className="text-display-sm mb-6">
@@ -100,7 +100,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Building2 className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">SpaceShare</span>
+            <span className="text-xl font-bold text-foreground">spacefindr</span>
           </Link>
 
           <Card className="p-8">
