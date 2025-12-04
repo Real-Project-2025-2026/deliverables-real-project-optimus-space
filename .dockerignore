@@ -1,7 +1,11 @@
-node_modules
+# Note: node_modules is intentionally NOT excluded here
+# This is a workaround for npm install bug in Docker containers
+# The build process relies on copying node_modules from the host
+
 dist
 .git
 .gitignore
 *.md
 .env*
 .DS_Store
+bun.lockb
