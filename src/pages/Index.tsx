@@ -60,17 +60,6 @@ export default function Index() {
 
         <div className="container relative">
           <div className="max-w-3xl mx-auto text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Badge variant="accent" className="mb-6 px-4 py-1.5">
-                <Star className="w-3.5 h-3.5 mr-1 fill-current" />
-                Deutschlands führende Plattform für Gewerbeflächenvermietung
-              </Badge>
-            </motion.div>
-
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -152,7 +141,7 @@ export default function Index() {
         <div className="container">
           <div className="text-center mb-12">
             <h2 className="text-display-sm text-foreground mb-4">
-              Warum SpaceShare?
+              Warum spacefindr?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Wir machen die Vermietung von Gewerbeflächen einfach, sicher und flexibel.
