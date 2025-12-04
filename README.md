@@ -60,6 +60,22 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## How can I run this project with Docker?
+
+For running the complete application stack locally with Docker (including Supabase backend), see [DOCKER_SETUP.md](./DOCKER_SETUP.md).
+
+Quick start:
+```sh
+# Copy environment variables
+cp .env.example .env
+
+# Build and start all services
+docker compose build app
+docker compose up -d
+
+# Access the app at http://localhost:3000
+```
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/30cd251a-6ea4-4bcb-8ce4-61b867aa5c7b) and click on Share -> Publish.
