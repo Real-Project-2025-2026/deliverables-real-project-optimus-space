@@ -6,13 +6,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockSpaces, mockBookings } from '@/data/mockData';
 import { 
-  Building2, Calendar, Euro, Plus, ArrowRight, 
+  Building2, Calendar, Euro, Plus, 
   CheckCircle2, XCircle, Clock, TrendingUp, Eye
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BookingStatus } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+import { fetchBookingsForLandlord, fetchSpaces } from '@/lib/api';
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'pending' | 'confirmed' | 'rejected' | 'muted' | 'success' }> = {
   pending: { label: 'Ausstehend', variant: 'pending' },
@@ -24,10 +25,19 @@ const statusConfig: Record<BookingStatus, { label: string; variant: 'pending' | 
 
 export default function LandlordDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  const landlordId = '22222222-2222-2222-2222-222222222222';
+  const { data: spaces = [], isLoading: isSpacesLoading, isError: isSpacesError } = useQuery({
+    queryKey: ['spaces', 'landlord'],
+    queryFn: fetchSpaces,
+  });
+  const { data: bookings = [], isLoading: isBookingsLoading, isError: isBookingsError } = useQuery({
+    queryKey: ['bookings', 'landlord', landlordId],
+    queryFn: () => fetchBookingsForLandlord(landlordId),
+  });
   
   // Filter for owner's spaces and bookings
-  const mySpaces = mockSpaces.filter(s => s.ownerId === 'owner1');
-  const myBookings = mockBookings.filter(b => b.landlordId === 'owner1');
+  const mySpaces = spaces.filter(s => s.ownerId === landlordId);
+  const myBookings = bookings.filter(b => b.landlordId === landlordId);
   const pendingRequests = myBookings.filter(b => b.status === 'pending');
   
   const totalRevenue = myBookings
@@ -124,7 +134,13 @@ export default function LandlordDashboard() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {pendingRequests.slice(0, 3).map((request) => (
+                      {isBookingsLoading && (
+                        <p className="text-muted-foreground">Lade Anfragen...</p>
+                      )}
+                      {isBookingsError && (
+                        <p className="text-muted-foreground">Anfragen konnten nicht geladen werden.</p>
+                      )}
+                      {!isBookingsLoading && !isBookingsError && pendingRequests.slice(0, 3).map((request) => (
                         <div 
                           key={request.id}
                           className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
@@ -145,7 +161,7 @@ export default function LandlordDashboard() {
                           </div>
                         </div>
                       ))}
-                      {pendingRequests.length === 0 && (
+                      {!isBookingsLoading && !isBookingsError && pendingRequests.length === 0 && (
                         <p className="text-center text-muted-foreground py-4">
                           Keine offenen Anfragen
                         </p>
@@ -162,7 +178,13 @@ export default function LandlordDashboard() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {myBookings.slice(0, 3).map((booking) => {
+                      {isBookingsLoading && (
+                        <p className="text-muted-foreground">Lade Buchungen...</p>
+                      )}
+                      {isBookingsError && (
+                        <p className="text-muted-foreground">Buchungen konnten nicht geladen werden.</p>
+                      )}
+                      {!isBookingsLoading && !isBookingsError && myBookings.slice(0, 3).map((booking) => {
                         const status = statusConfig[booking.status];
                         return (
                           <div 
@@ -189,7 +211,13 @@ export default function LandlordDashboard() {
               {/* Spaces Tab */}
               <TabsContent value="spaces">
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {mySpaces.map((space) => (
+                  {isSpacesLoading && (
+                    <p className="text-muted-foreground">Lade Flächen...</p>
+                  )}
+                  {isSpacesError && (
+                    <p className="text-muted-foreground">Flächen konnten nicht geladen werden.</p>
+                  )}
+                  {!isSpacesLoading && !isSpacesError && mySpaces.map((space) => (
                     <Card key={space.id} variant="interactive">
                       <div className="aspect-video bg-muted relative rounded-t-lg overflow-hidden">
                         <img 
@@ -245,7 +273,13 @@ export default function LandlordDashboard() {
               {/* Requests Tab */}
               <TabsContent value="requests">
                 <div className="space-y-4">
-                  {pendingRequests.map((request) => (
+                  {isBookingsLoading && (
+                    <p className="text-muted-foreground">Lade Anfragen...</p>
+                  )}
+                  {isBookingsError && (
+                    <p className="text-muted-foreground">Anfragen konnten nicht geladen werden.</p>
+                  )}
+                  {!isBookingsLoading && !isBookingsError && pendingRequests.map((request) => (
                     <Card key={request.id} className="p-4">
                       <div className="flex flex-col md:flex-row gap-4">
                         <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
@@ -297,7 +331,7 @@ export default function LandlordDashboard() {
                     </Card>
                   ))}
 
-                  {pendingRequests.length === 0 && (
+                  {!isBookingsLoading && !isBookingsError && pendingRequests.length === 0 && (
                     <Card variant="bordered" className="p-8 text-center">
                       <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
                       <h3 className="font-semibold text-foreground mb-2">Alles erledigt!</h3>
@@ -312,7 +346,13 @@ export default function LandlordDashboard() {
               {/* Bookings Tab */}
               <TabsContent value="bookings">
                 <div className="space-y-4">
-                  {myBookings.map((booking) => {
+                  {isBookingsLoading && (
+                    <p className="text-muted-foreground">Lade Buchungen...</p>
+                  )}
+                  {isBookingsError && (
+                    <p className="text-muted-foreground">Buchungen konnten nicht geladen werden.</p>
+                  )}
+                  {!isBookingsLoading && !isBookingsError && myBookings.map((booking) => {
                     const status = statusConfig[booking.status];
                     return (
                       <Card key={booking.id} className="p-4">

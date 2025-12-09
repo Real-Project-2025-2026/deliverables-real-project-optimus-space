@@ -5,18 +5,21 @@ import { SearchFilters } from '@/components/spaces/SearchFilters';
 import { SpaceCard } from '@/components/spaces/SpaceCard';
 import { MapView } from '@/components/spaces/MapView';
 import { Button } from '@/components/ui/button';
-import { mockSpaces } from '@/data/mockData';
 import { Space } from '@/types';
 import { List, Map, Grid } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { fetchSpaces } from '@/lib/api';
 
 type ViewMode = 'split' | 'list' | 'map';
 
 export default function Search() {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
-
-  const spaces = mockSpaces;
+  const { data: spaces = [], isLoading, isError } = useQuery({
+    queryKey: ['spaces', 'all'],
+    queryFn: fetchSpaces,
+  });
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -31,7 +34,11 @@ export default function Search() {
             {/* View mode toggle & results count */}
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{spaces.length}</span> Flächen gefunden
+                {isLoading ? 'Lade Flächen...' : isError ? 'Laden fehlgeschlagen' : (
+                  <>
+                    <span className="font-medium text-foreground">{spaces.length}</span> Flächen gefunden
+                  </>
+                )}
               </p>
               
               <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
@@ -78,7 +85,7 @@ export default function Search() {
 
         {/* Results */}
         <div className="container py-6 flex-1">
-          {viewMode === 'split' && (
+          {!isLoading && !isError && viewMode === 'split' && (
             <div className="grid lg:grid-cols-2 gap-6 h-[calc(100vh-280px)] min-h-[500px]">
               {/* List */}
               <div className="overflow-y-auto pr-2 space-y-4">
@@ -104,7 +111,7 @@ export default function Search() {
             </div>
           )}
 
-          {viewMode === 'list' && (
+          {!isLoading && !isError && viewMode === 'list' && (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {spaces.map((space, index) => (
                 <SpaceCard key={space.id} space={space} index={index} />
@@ -112,12 +119,18 @@ export default function Search() {
             </div>
           )}
 
-          {viewMode === 'map' && (
+          {!isLoading && !isError && viewMode === 'map' && (
             <div className="h-[calc(100vh-280px)] min-h-[500px]">
               <MapView 
                 spaces={spaces}
                 onMarkerClick={(space) => setSelectedSpace(space)}
               />
+            </div>
+          )}
+
+          {(isLoading || isError) && (
+            <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+              {isLoading ? 'Lade Ergebnisse...' : 'Daten konnten nicht geladen werden.'}
             </div>
           )}
         </div>

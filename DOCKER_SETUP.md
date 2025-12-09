@@ -23,6 +23,7 @@ This guide explains how to run the spacefindr application locally using Docker a
    ```
    
    The `.env.example` file contains default Supabase demo keys that work for local development. You can use them as-is or generate your own keys.
+   Make sure the Vite variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set (they are prefilled for local Compose).
 
 3. **Build the application**
    ```bash
@@ -33,6 +34,8 @@ This guide explains how to run the spacefindr application locally using Docker a
    ```bash
    docker compose up -d
    ```
+
+   The `supabase/init` scripts create the spaces/bookings/users tables and seed demo data automatically on first start.
 
 5. **Verify services are running**
    ```bash

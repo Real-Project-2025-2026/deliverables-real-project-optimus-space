@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { SpaceCard } from '@/components/spaces/SpaceCard';
-import { mockSpaces, categoryLabels } from '@/data/mockData';
+import { categoryLabels } from '@/data/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { fetchSpaces } from '@/lib/api';
 import { 
   Search, Building2, Calendar, Shield, ArrowRight, 
   CheckCircle2, MapPin, Clock, Handshake, Star
@@ -43,7 +45,12 @@ const stats = [
 ];
 
 export default function Index() {
-  const featuredSpaces = mockSpaces.slice(0, 3);
+  const { data: spaces, isLoading, isError } = useQuery({
+    queryKey: ['spaces', 'featured'],
+    queryFn: fetchSpaces,
+  });
+
+  const featuredSpaces = spaces?.slice(0, 3) ?? [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -195,7 +202,13 @@ export default function Index() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredSpaces.map((space, index) => (
+            {isLoading && (
+              <p className="text-muted-foreground">Lade Flächen...</p>
+            )}
+            {isError && (
+              <p className="text-muted-foreground">Konnte Flächen nicht laden.</p>
+            )}
+            {!isLoading && !isError && featuredSpaces.map((space, index) => (
               <SpaceCard key={space.id} space={space} index={index} />
             ))}
           </div>

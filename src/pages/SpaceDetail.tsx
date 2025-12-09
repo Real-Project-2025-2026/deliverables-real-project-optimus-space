@@ -4,7 +4,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { mockSpaces, categoryLabels, amenityLabels } from '@/data/mockData';
+import { categoryLabels, amenityLabels } from '@/data/mockData';
 import { 
   ArrowLeft, MapPin, Maximize, Star, Calendar, 
   Wifi, Zap, Droplets, Car, Thermometer, Wind,
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchSpaceById } from '@/lib/api';
 
 const amenityIcons: Record<string, React.ComponentType<any>> = {
   wifi: Wifi,
@@ -29,10 +31,21 @@ export default function SpaceDetail() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
-  const space = mockSpaces.find(s => s.id === id);
+  const { data: space, isLoading, isError } = useQuery({
+    queryKey: ['space', id],
+    queryFn: () => fetchSpaceById(id || ''),
+    enabled: Boolean(id),
+  });
 
-  if (!space) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Lade Fläche...</p>
+      </div>
+    );
+  }
+
+  if (isError || !space) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -46,7 +59,7 @@ export default function SpaceDetail() {
   }
 
   // Generate placeholder images
-  const images = [space.images[0], space.images[0], space.images[0], space.images[0]];
+  const images = space.images.length > 0 ? space.images : ['/placeholder.svg'];
 
   return (
     <div className="min-h-screen bg-background">
