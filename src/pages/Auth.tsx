@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 type AuthMode = 'login' | 'register';
 type UserRole = 'tenant' | 'landlord';
@@ -14,9 +16,12 @@ type UserRole = 'tenant' | 'landlord';
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') === 'register' ? 'register' : 'login';
-  
+  const initialRole = searchParams.get('role') === 'landlord' ? 'landlord' : 'tenant';
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [role, setRole] = useState<UserRole>('tenant');
+  const [role, setRole] = useState<UserRole>(initialRole);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -30,9 +35,90 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
+
+    try {
+      if (mode === 'register') {
+        // Validate passwords match
+        if (formData.password !== formData.confirmPassword) {
+          toast({
+            title: 'Fehler',
+            description: 'Die Passwörter stimmen nicht überein',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate password length
+        if (formData.password.length < 6) {
+          toast({
+            title: 'Fehler',
+            description: 'Das Passwort muss mindestens 6 Zeichen lang sein',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Register with Supabase
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              name: formData.name,
+              role: role,
+            },
+          },
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: 'Erfolgreich registriert!',
+          description: 'Bitte überprüfen Sie Ihre E-Mails zur Bestätigung.',
+        });
+
+        // Redirect based on role
+        if (role === 'landlord') {
+          navigate('/dashboard/landlord');
+        } else {
+          navigate('/dashboard/tenant');
+        }
+      } else {
+        // Login with Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: 'Willkommen zurück!',
+          description: 'Sie wurden erfolgreich angemeldet.',
+        });
+
+        // Get user role from metadata
+        const userRole = data.user?.user_metadata?.role || 'tenant';
+
+        // Redirect based on role
+        if (userRole === 'landlord') {
+          navigate('/dashboard/landlord');
+        } else {
+          navigate('/dashboard/tenant');
+        }
+      }
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Ein Fehler ist aufgetreten',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

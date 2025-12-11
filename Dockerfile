@@ -3,6 +3,14 @@ FROM node:20 AS build
 
 WORKDIR /app
 
+# Build arguments for Vite environment variables
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+
+# Set as environment variables for the build
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+
 # NOTE: This Dockerfile uses an unconventional approach due to a known npm bug
 # in Docker containers where "npm install" fails with "Exit handler never called!"
 # We copy all files including pre-installed node_modules from the host as a workaround.
