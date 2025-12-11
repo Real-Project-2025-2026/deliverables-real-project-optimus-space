@@ -1,6 +1,6 @@
-# Rent a Room
+# Spacefinder
 
-A Vite + React application for listing and discovering workspace rentals. The UI is built with TypeScript, Tailwind CSS, and shadcn components, while Supabase (self-hosted via Docker) powers authentication, storage, and database access.
+A Vite + React application for listing and discovering commercial spaces for daily rental. The UI is built with TypeScript, Tailwind CSS, and shadcn components, while Supabase (self-hosted via Docker) powers authentication, storage, and database access.
 
 ## Stack
 - React 18 + Vite + TypeScript

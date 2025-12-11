@@ -15,6 +15,8 @@ This guide explains how to run the spacefindr application locally using Docker a
    ```bash
    git clone https://github.com/luca4protection/rentaroom-daily.git
    cd rentaroom-daily
+
+   # Note: This repository will be renamed to spacefinder
    ```
 
 2. **Create environment file**
