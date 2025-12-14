@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Building2, Menu, X, Search, User, LogIn } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,18 +9,32 @@ const navigation = [
   { name: 'Flächen suchen', href: '/search' },
   { name: 'So funktioniert\'s', href: '/how-it-works' },
   { name: 'Für Vermieter', href: '/landlords' },
+  { name: 'Leerstand melden', href: '/report-vacancy' },
 ];
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
 
   const isHomePage = location.pathname === '/';
 
+  // Handle scroll to change header background
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <header className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-      isHomePage ? "bg-transparent" : "bg-surface/95 backdrop-blur-lg border-b border-border"
+      isHomePage && !isScrolled
+        ? "bg-transparent"
+        : "bg-surface/95 backdrop-blur-lg border-b border-border"
     )}>
       <nav className="container flex items-center justify-between py-4">
         {/* Logo */}

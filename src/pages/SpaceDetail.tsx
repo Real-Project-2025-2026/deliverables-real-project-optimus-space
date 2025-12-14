@@ -5,15 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { categoryLabels, amenityLabels } from '@/data/mockData';
-import { 
-  ArrowLeft, MapPin, Maximize, Star, Calendar, 
+import {
+  ArrowLeft, MapPin, Maximize, Star, Calendar,
   Wifi, Zap, Droplets, Car, Thermometer, Wind,
   Shield, Accessibility, User, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSpaceById } from '@/lib/api';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons in Leaflet with bundlers
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 const amenityIcons: Record<string, React.ComponentType<any>> = {
   wifi: Wifi,
@@ -25,6 +35,72 @@ const amenityIcons: Record<string, React.ComponentType<any>> = {
   security: Shield,
   accessible: Accessibility,
 };
+
+// Location Map Component
+function LocationMap({ latitude, longitude, title }: { latitude: number; longitude: number; title: string }) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    // Create map
+    mapRef.current = L.map(mapContainerRef.current, {
+      center: [latitude, longitude],
+      zoom: 15,
+      zoomControl: true,
+      scrollWheelZoom: false,
+    });
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(mapRef.current);
+
+    // Custom marker icon
+    const customIcon = L.divIcon({
+      className: 'custom-location-marker',
+      html: `
+        <div class="relative">
+          <div class="px-3 py-1.5 rounded-lg shadow-lg bg-blue-600 text-white">
+            <span class="text-sm font-semibold whitespace-nowrap">${title.substring(0, 20)}${title.length > 20 ? '...' : ''}</span>
+          </div>
+          <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45 bg-blue-600"></div>
+        </div>
+      `,
+      iconSize: [150, 40],
+      iconAnchor: [75, 50],
+    });
+
+    // Add marker
+    L.marker([latitude, longitude], { icon: customIcon })
+      .addTo(mapRef.current);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [latitude, longitude, title]);
+
+  return (
+    <div className="relative w-full h-64 rounded-xl overflow-hidden">
+      <div
+        ref={mapContainerRef}
+        className="absolute inset-0 z-0"
+        style={{ minHeight: '256px' }}
+      />
+      <style>{`
+        .custom-location-marker {
+          background: transparent !important;
+          border: none !important;
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function SpaceDetail() {
   const { id } = useParams();
@@ -204,19 +280,21 @@ export default function SpaceDetail() {
                 </Card>
               </motion.div>
 
-              {/* Location placeholder */}
+              {/* Location Map */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
                 <h2 className="text-heading text-foreground mb-4">Standort</h2>
-                <div className="h-64 bg-muted rounded-xl flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <MapPin className="w-8 h-8 mx-auto mb-2" />
-                    <p>Kartenansicht kommt bald</p>
-                    <p className="text-sm">{space.address}, {space.city}</p>
-                  </div>
+                <LocationMap
+                  latitude={space.latitude}
+                  longitude={space.longitude}
+                  title={space.title}
+                />
+                <div className="mt-3 flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-sm">{space.address}, {space.postalCode} {space.city}</span>
                 </div>
               </motion.div>
             </div>

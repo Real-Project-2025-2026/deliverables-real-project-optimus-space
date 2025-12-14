@@ -6,43 +6,175 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Building2, Calendar, Euro, Plus, 
-  CheckCircle2, XCircle, Clock, TrendingUp, Eye
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Building2, Calendar, Euro, Plus,
+  CheckCircle2, XCircle, Clock, TrendingUp, Eye,
+  FileText, Camera, Shield, Download, AlertTriangle,
+  CreditCard, ImageIcon
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { BookingStatus } from '@/types';
-import { useQuery } from '@tanstack/react-query';
-import { fetchBookingsForLandlord, fetchSpaces } from '@/lib/api';
+import { BookingStatus, PaymentStatus, DepositStatus, Booking } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { bookingService, contractService, checkinService, checkoutService } from '@/lib/services';
+import { spaceService } from '@/lib/services';
+import { useToast } from '@/hooks/use-toast';
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'pending' | 'confirmed' | 'rejected' | 'muted' | 'success' }> = {
+  requested: { label: 'Angefragt', variant: 'pending' },
   pending: { label: 'Ausstehend', variant: 'pending' },
   confirmed: { label: 'Bestätigt', variant: 'confirmed' },
   rejected: { label: 'Abgelehnt', variant: 'rejected' },
   cancelled: { label: 'Storniert', variant: 'muted' },
   completed: { label: 'Abgeschlossen', variant: 'success' },
+  in_progress: { label: 'Laufend', variant: 'confirmed' },
+};
+
+const paymentStatusConfig: Record<PaymentStatus, { label: string; color: string }> = {
+  pending: { label: 'Ausstehend', color: 'text-yellow-600' },
+  processing: { label: 'In Bearbeitung', color: 'text-blue-600' },
+  paid: { label: 'Bezahlt', color: 'text-green-600' },
+  failed: { label: 'Fehlgeschlagen', color: 'text-red-600' },
+  refunded: { label: 'Erstattet', color: 'text-gray-600' },
+};
+
+const depositStatusConfig: Record<DepositStatus, { label: string; color: string }> = {
+  pending: { label: 'Ausstehend', color: 'text-yellow-600' },
+  held: { label: 'Einbehalten', color: 'text-blue-600' },
+  released: { label: 'Freigegeben', color: 'text-green-600' },
+  withheld_partial: { label: 'Teilweise einbehalten', color: 'text-orange-600' },
+  withheld_full: { label: 'Vollständig einbehalten', color: 'text-red-600' },
 };
 
 export default function LandlordDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [photoType, setPhotoType] = useState<'checkin' | 'checkout'>('checkin');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Demo: Use fixed landlord ID
   const landlordId = '22222222-2222-2222-2222-222222222222';
-  const { data: spaces = [], isLoading: isSpacesLoading, isError: isSpacesError } = useQuery({
-    queryKey: ['spaces', 'landlord'],
-    queryFn: fetchSpaces,
+
+  // Fetch spaces
+  const { data: spaces = [], isLoading: isSpacesLoading } = useQuery({
+    queryKey: ['spaces', 'landlord', landlordId],
+    queryFn: () => spaceService.fetchByOwner(landlordId),
   });
-  const { data: bookings = [], isLoading: isBookingsLoading, isError: isBookingsError } = useQuery({
+
+  // Fetch bookings
+  const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
     queryKey: ['bookings', 'landlord', landlordId],
-    queryFn: () => fetchBookingsForLandlord(landlordId),
+    queryFn: () => bookingService.fetchForLandlord(landlordId),
   });
-  
-  // Filter for owner's spaces and bookings
-  const mySpaces = spaces.filter(s => s.ownerId === landlordId);
-  const myBookings = bookings.filter(b => b.landlordId === landlordId);
-  const pendingRequests = myBookings.filter(b => b.status === 'pending');
-  
-  const totalRevenue = myBookings
+
+  // Fetch contracts
+  const { data: contracts = [] } = useQuery({
+    queryKey: ['contracts', 'landlord', landlordId],
+    queryFn: () => contractService.fetchForLandlord(landlordId),
+  });
+
+  // Fetch check-in photos for selected booking
+  const { data: checkinPhotos = [] } = useQuery({
+    queryKey: ['checkin-photos', selectedBooking?.id],
+    queryFn: () => selectedBooking ? checkinService.fetchPhotos(selectedBooking.id) : Promise.resolve([]),
+    enabled: !!selectedBooking && photoDialogOpen && photoType === 'checkin',
+  });
+
+  // Fetch check-out photos for selected booking
+  const { data: checkoutPhotos = [] } = useQuery({
+    queryKey: ['checkout-photos', selectedBooking?.id],
+    queryFn: () => selectedBooking ? checkoutService.fetchPhotos(selectedBooking.id) : Promise.resolve([]),
+    enabled: !!selectedBooking && photoDialogOpen && photoType === 'checkout',
+  });
+
+  // Mutations
+  const confirmMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingService.confirm(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: 'Buchung bestätigt', description: 'Die Buchungsanfrage wurde angenommen.' });
+    },
+    onError: () => {
+      toast({ title: 'Fehler', description: 'Die Buchung konnte nicht bestätigt werden.', variant: 'destructive' });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingService.reject(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: 'Buchung abgelehnt', description: 'Die Buchungsanfrage wurde abgelehnt.' });
+    },
+    onError: () => {
+      toast({ title: 'Fehler', description: 'Die Buchung konnte nicht abgelehnt werden.', variant: 'destructive' });
+    },
+  });
+
+  const releaseDepositMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingService.releaseDeposit(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: 'Kaution freigegeben', description: 'Die Kaution wurde erfolgreich freigegeben.' });
+    },
+    onError: () => {
+      toast({ title: 'Fehler', description: 'Die Kaution konnte nicht freigegeben werden.', variant: 'destructive' });
+    },
+  });
+
+  const withholdDepositMutation = useMutation({
+    mutationFn: ({ bookingId, type }: { bookingId: string; type: 'partial' | 'full' }) =>
+      bookingService.withholdDeposit(bookingId, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: 'Kaution einbehalten', description: 'Der Kautionsstatus wurde aktualisiert.' });
+    },
+    onError: () => {
+      toast({ title: 'Fehler', description: 'Der Kautionsstatus konnte nicht aktualisiert werden.', variant: 'destructive' });
+    },
+  });
+
+  const generateContractMutation = useMutation({
+    mutationFn: async (booking: Booking) => {
+      const contract = await contractService.createFromBooking(booking);
+      await contractService.generatePdf(contract.id);
+      return contract;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      toast({ title: 'Vertrag erstellt', description: 'Der Mietvertrag wurde erfolgreich generiert.' });
+    },
+    onError: () => {
+      toast({ title: 'Fehler', description: 'Der Vertrag konnte nicht erstellt werden.', variant: 'destructive' });
+    },
+  });
+
+  // Filter bookings
+  const pendingRequests = bookings.filter(b => b.status === 'requested' || b.status === 'pending');
+  const confirmedBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'in_progress');
+  const completedBookings = bookings.filter(b => b.status === 'completed');
+
+  const totalRevenue = bookings
     .filter(b => b.status === 'completed' || b.status === 'confirmed')
     .reduce((sum, b) => sum + b.totalPrice, 0);
+
+  const handleViewPhotos = (booking: Booking, type: 'checkin' | 'checkout') => {
+    setSelectedBooking(booking);
+    setPhotoType(type);
+    setPhotoDialogOpen(true);
+  };
+
+  const getContractForBooking = (bookingId: string) => {
+    return contracts.find(c => c.bookingId === bookingId);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,7 +194,7 @@ export default function LandlordDashboard() {
                   Vermieter-Dashboard
                 </h1>
                 <p className="text-muted-foreground">
-                  Verwalten Sie Ihre Flächen und Buchungsanfragen.
+                  Verwalten Sie Ihre Flächen, Buchungen und Verträge.
                 </p>
               </div>
               <Button variant="accent" asChild>
@@ -82,9 +214,9 @@ export default function LandlordDashboard() {
             className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
           >
             {[
-              { label: 'Meine Flächen', value: mySpaces.length, icon: Building2 },
+              { label: 'Meine Flächen', value: spaces.length, icon: Building2 },
               { label: 'Offene Anfragen', value: pendingRequests.length, icon: Clock },
-              { label: 'Buchungen', value: myBookings.length, icon: Calendar },
+              { label: 'Aktive Buchungen', value: confirmedBookings.length, icon: Calendar },
               { label: 'Einnahmen', value: `€${totalRevenue.toLocaleString()}`, icon: Euro },
             ].map((stat) => (
               <Card key={stat.label} variant="bordered" className="p-4">
@@ -120,6 +252,7 @@ export default function LandlordDashboard() {
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="bookings">Buchungen</TabsTrigger>
+                <TabsTrigger value="contracts">Verträge</TabsTrigger>
               </TabsList>
 
               {/* Overview Tab */}
@@ -137,11 +270,8 @@ export default function LandlordDashboard() {
                       {isBookingsLoading && (
                         <p className="text-muted-foreground">Lade Anfragen...</p>
                       )}
-                      {isBookingsError && (
-                        <p className="text-muted-foreground">Anfragen konnten nicht geladen werden.</p>
-                      )}
-                      {!isBookingsLoading && !isBookingsError && pendingRequests.slice(0, 3).map((request) => (
-                        <div 
+                      {!isBookingsLoading && pendingRequests.slice(0, 3).map((request) => (
+                        <div
                           key={request.id}
                           className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                         >
@@ -152,16 +282,26 @@ export default function LandlordDashboard() {
                             </p>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="success">
+                            <Button
+                              size="sm"
+                              variant="success"
+                              onClick={() => confirmMutation.mutate(request.id)}
+                              disabled={confirmMutation.isPending}
+                            >
                               <CheckCircle2 className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="destructive">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => rejectMutation.mutate(request.id)}
+                              disabled={rejectMutation.isPending}
+                            >
                               <XCircle className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
                       ))}
-                      {!isBookingsLoading && !isBookingsError && pendingRequests.length === 0 && (
+                      {!isBookingsLoading && pendingRequests.length === 0 && (
                         <p className="text-center text-muted-foreground py-4">
                           Keine offenen Anfragen
                         </p>
@@ -181,13 +321,10 @@ export default function LandlordDashboard() {
                       {isBookingsLoading && (
                         <p className="text-muted-foreground">Lade Buchungen...</p>
                       )}
-                      {isBookingsError && (
-                        <p className="text-muted-foreground">Buchungen konnten nicht geladen werden.</p>
-                      )}
-                      {!isBookingsLoading && !isBookingsError && myBookings.slice(0, 3).map((booking) => {
+                      {!isBookingsLoading && bookings.slice(0, 3).map((booking) => {
                         const status = statusConfig[booking.status];
                         return (
-                          <div 
+                          <div
                             key={booking.id}
                             className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                           >
@@ -214,18 +351,15 @@ export default function LandlordDashboard() {
                   {isSpacesLoading && (
                     <p className="text-muted-foreground">Lade Flächen...</p>
                   )}
-                  {isSpacesError && (
-                    <p className="text-muted-foreground">Flächen konnten nicht geladen werden.</p>
-                  )}
-                  {!isSpacesLoading && !isSpacesError && mySpaces.map((space) => (
+                  {!isSpacesLoading && spaces.map((space) => (
                     <Card key={space.id} variant="interactive">
                       <div className="aspect-video bg-muted relative rounded-t-lg overflow-hidden">
-                        <img 
-                          src={space.images[0]} 
+                        <img
+                          src={space.images[0]}
                           alt={space.title}
                           className="w-full h-full object-cover"
                         />
-                        <Badge 
+                        <Badge
                           variant={space.isActive ? 'success' : 'muted'}
                           className="absolute top-2 right-2"
                         >
@@ -254,7 +388,7 @@ export default function LandlordDashboard() {
 
                   {/* Add new space card */}
                   <Card variant="bordered" className="flex items-center justify-center min-h-[280px] border-dashed">
-                    <Link 
+                    <Link
                       to="/landlords/new-space"
                       className="text-center p-6 hover:text-primary transition-colors"
                     >
@@ -276,10 +410,7 @@ export default function LandlordDashboard() {
                   {isBookingsLoading && (
                     <p className="text-muted-foreground">Lade Anfragen...</p>
                   )}
-                  {isBookingsError && (
-                    <p className="text-muted-foreground">Anfragen konnten nicht geladen werden.</p>
-                  )}
-                  {!isBookingsLoading && !isBookingsError && pendingRequests.map((request) => (
+                  {!isBookingsLoading && pendingRequests.map((request) => (
                     <Card key={request.id} className="p-4">
                       <div className="flex flex-col md:flex-row gap-4">
                         <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
@@ -301,7 +432,7 @@ export default function LandlordDashboard() {
                             </div>
                             <Badge variant="pending">Ausstehend</Badge>
                           </div>
-                          
+
                           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
                             <span>
                               {request.startDate.toLocaleDateString('de-DE')} - {request.endDate.toLocaleDateString('de-DE')}
@@ -317,11 +448,21 @@ export default function LandlordDashboard() {
                           )}
 
                           <div className="flex gap-2">
-                            <Button variant="success" size="sm">
+                            <Button
+                              variant="success"
+                              size="sm"
+                              onClick={() => confirmMutation.mutate(request.id)}
+                              disabled={confirmMutation.isPending}
+                            >
                               <CheckCircle2 className="w-4 h-4 mr-1" />
                               Annehmen
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => rejectMutation.mutate(request.id)}
+                              disabled={rejectMutation.isPending}
+                            >
                               <XCircle className="w-4 h-4 mr-1" />
                               Ablehnen
                             </Button>
@@ -331,7 +472,7 @@ export default function LandlordDashboard() {
                     </Card>
                   ))}
 
-                  {!isBookingsLoading && !isBookingsError && pendingRequests.length === 0 && (
+                  {!isBookingsLoading && pendingRequests.length === 0 && (
                     <Card variant="bordered" className="p-8 text-center">
                       <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
                       <h3 className="font-semibold text-foreground mb-2">Alles erledigt!</h3>
@@ -343,47 +484,133 @@ export default function LandlordDashboard() {
                 </div>
               </TabsContent>
 
-              {/* Bookings Tab */}
+              {/* Bookings Tab - Enhanced */}
               <TabsContent value="bookings">
                 <div className="space-y-4">
                   {isBookingsLoading && (
                     <p className="text-muted-foreground">Lade Buchungen...</p>
                   )}
-                  {isBookingsError && (
-                    <p className="text-muted-foreground">Buchungen konnten nicht geladen werden.</p>
-                  )}
-                  {!isBookingsLoading && !isBookingsError && myBookings.map((booking) => {
+                  {!isBookingsLoading && bookings.map((booking) => {
                     const status = statusConfig[booking.status];
+                    const paymentStatus = paymentStatusConfig[booking.paymentStatus];
+                    const depositStatus = depositStatusConfig[booking.depositStatus];
+                    const contract = getContractForBooking(booking.id);
+
                     return (
                       <Card key={booking.id} className="p-4">
-                        <div className="flex flex-col md:flex-row gap-4">
-                          <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                            <img
-                              src={booking.spaceImage}
-                              alt={booking.spaceName}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div>
-                                <h3 className="font-semibold text-foreground">
-                                  {booking.spaceName}
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Gebucht von {booking.tenantName}
-                                </p>
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-col md:flex-row gap-4">
+                            <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                              <img
+                                src={booking.spaceImage}
+                                alt={booking.spaceName}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div>
+                                  <h3 className="font-semibold text-foreground">
+                                    {booking.spaceName}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    Gebucht von {booking.tenantName}
+                                  </p>
+                                </div>
+                                <Badge variant={status.variant}>{status.label}</Badge>
                               </div>
-                              <Badge variant={status.variant}>{status.label}</Badge>
+
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-2">
+                                <span>
+                                  {booking.startDate.toLocaleDateString('de-DE')} - {booking.endDate.toLocaleDateString('de-DE')}
+                                </span>
+                                <span>{booking.totalDays} Tage</span>
+                                <span className="font-semibold text-foreground">€{booking.totalPrice}</span>
+                              </div>
+
+                              {/* Status Badges */}
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                <div className="flex items-center gap-1 text-xs">
+                                  <CreditCard className="w-3 h-3" />
+                                  <span className={paymentStatus.color}>{paymentStatus.label}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs">
+                                  <Shield className="w-3 h-3" />
+                                  <span className={depositStatus.color}>Kaution: {depositStatus.label}</span>
+                                </div>
+                                {contract && (
+                                  <div className="flex items-center gap-1 text-xs text-primary">
+                                    <FileText className="w-3 h-3" />
+                                    <span>Vertrag vorhanden</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            
-                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                              <span>
-                                {booking.startDate.toLocaleDateString('de-DE')} - {booking.endDate.toLocaleDateString('de-DE')}
-                              </span>
-                              <span>{booking.totalDays} Tage</span>
-                              <span className="font-semibold text-foreground">€{booking.totalPrice}</span>
-                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-2 pt-2 border-t">
+                            {/* View Photos */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewPhotos(booking, 'checkin')}
+                            >
+                              <Camera className="w-4 h-4 mr-1" />
+                              Check-in Fotos
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewPhotos(booking, 'checkout')}
+                            >
+                              <ImageIcon className="w-4 h-4 mr-1" />
+                              Check-out Fotos
+                            </Button>
+
+                            {/* Contract */}
+                            {contract?.pdfUrl ? (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={contract.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Vertrag
+                                </a>
+                              </Button>
+                            ) : booking.status === 'confirmed' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => generateContractMutation.mutate(booking)}
+                                disabled={generateContractMutation.isPending}
+                              >
+                                <FileText className="w-4 h-4 mr-1" />
+                                Vertrag erstellen
+                              </Button>
+                            )}
+
+                            {/* Deposit Actions */}
+                            {booking.depositStatus === 'held' && booking.status === 'completed' && (
+                              <>
+                                <Button
+                                  variant="success"
+                                  size="sm"
+                                  onClick={() => releaseDepositMutation.mutate(booking.id)}
+                                  disabled={releaseDepositMutation.isPending}
+                                >
+                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  Kaution freigeben
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => withholdDepositMutation.mutate({ bookingId: booking.id, type: 'partial' })}
+                                  disabled={withholdDepositMutation.isPending}
+                                >
+                                  <AlertTriangle className="w-4 h-4 mr-1" />
+                                  Teilweise einbehalten
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </Card>
@@ -391,10 +618,108 @@ export default function LandlordDashboard() {
                   })}
                 </div>
               </TabsContent>
+
+              {/* Contracts Tab */}
+              <TabsContent value="contracts">
+                <div className="space-y-4">
+                  {contracts.length === 0 ? (
+                    <Card variant="bordered" className="p-8 text-center">
+                      <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="font-semibold text-foreground mb-2">Keine Verträge</h3>
+                      <p className="text-muted-foreground">
+                        Verträge werden automatisch erstellt, wenn eine Buchung bestätigt wird.
+                      </p>
+                    </Card>
+                  ) : (
+                    contracts.map((contract) => {
+                      const booking = bookings.find(b => b.id === contract.bookingId);
+                      return (
+                        <Card key={contract.id} className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <FileText className="w-4 h-4 text-primary" />
+                                <span className="font-semibold text-foreground">
+                                  {contract.contractNumber}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {booking?.spaceName || 'Unbekannt'} • {booking?.tenantName || 'Unbekannt'}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {contract.startDate.toLocaleDateString('de-DE')} - {contract.endDate.toLocaleDateString('de-DE')}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={contract.status === 'signed_both' ? 'success' : 'muted'}>
+                                {contract.status === 'signed_both' ? 'Unterschrieben' : contract.status}
+                              </Badge>
+                              {contract.pdfUrl && (
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={contract.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                    <Download className="w-4 h-4" />
+                                  </a>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </motion.div>
         </div>
       </main>
+
+      {/* Photo Dialog */}
+      <Dialog open={photoDialogOpen} onOpenChange={setPhotoDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {photoType === 'checkin' ? 'Check-in Fotos' : 'Check-out Fotos'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedBooking?.spaceName} - {selectedBooking?.tenantName}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            {(photoType === 'checkin' ? checkinPhotos : checkoutPhotos).map((photo) => (
+              <div key={photo.id} className="relative group">
+                <img
+                  src={photo.imageUrl}
+                  alt={photo.description || 'Foto'}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                {photo.roomArea && (
+                  <Badge className="absolute bottom-2 left-2" variant="secondary">
+                    {photo.roomArea}
+                  </Badge>
+                )}
+                {photoType === 'checkout' && 'hasDamage' in photo && photo.hasDamage && (
+                  <Badge className="absolute top-2 right-2" variant="destructive">
+                    Schaden
+                  </Badge>
+                )}
+              </div>
+            ))}
+            {(photoType === 'checkin' ? checkinPhotos : checkoutPhotos).length === 0 && (
+              <div className="col-span-full text-center py-8 text-muted-foreground">
+                Keine Fotos vorhanden
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPhotoDialogOpen(false)}>
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

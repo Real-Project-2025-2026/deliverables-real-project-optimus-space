@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { supabase, isOfflineMode } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 type AuthMode = 'login' | 'register';
@@ -37,6 +37,110 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
+      // Offline/Demo mode - simulate authentication
+      if (isOfflineMode) {
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        if (mode === 'register') {
+          // Validate passwords match
+          if (formData.password !== formData.confirmPassword) {
+            toast({
+              title: 'Fehler',
+              description: 'Die Passwörter stimmen nicht überein',
+              variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Validate password length
+          if (formData.password.length < 6) {
+            toast({
+              title: 'Fehler',
+              description: 'Das Passwort muss mindestens 6 Zeichen lang sein',
+              variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Store demo user in localStorage
+          const demoUser = {
+            id: crypto.randomUUID(),
+            email: formData.email,
+            name: formData.name,
+            role: role,
+            createdAt: new Date().toISOString(),
+          };
+          localStorage.setItem('spacefinder_demo_user', JSON.stringify(demoUser));
+
+          toast({
+            title: 'Erfolgreich registriert!',
+            description: 'Demo-Modus: Sie wurden angemeldet.',
+          });
+
+          // Redirect based on role
+          if (role === 'landlord') {
+            navigate('/dashboard/landlord');
+          } else {
+            navigate('/dashboard/tenant');
+          }
+        } else {
+          // Demo login - accept any email/password with 6+ chars
+          if (formData.password.length < 6) {
+            toast({
+              title: 'Fehler',
+              description: 'Ungültige Anmeldedaten',
+              variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Check for demo accounts
+          let userRole: 'tenant' | 'landlord' | 'admin' = 'tenant';
+          let userName = 'Demo Benutzer';
+
+          if (formData.email === 'admin@spaceshare.de') {
+            userRole = 'admin';
+            userName = 'Admin User';
+          } else if (formData.email.includes('landlord') ||
+                     formData.email === 'anna@example.com' ||
+                     formData.email === 'thomas@example.com' ||
+                     formData.email === 'sophie@example.com') {
+            userRole = 'landlord';
+            userName = formData.email.split('@')[0];
+          }
+
+          const demoUser = {
+            id: crypto.randomUUID(),
+            email: formData.email,
+            name: userName,
+            role: userRole,
+            createdAt: new Date().toISOString(),
+          };
+          localStorage.setItem('spacefinder_demo_user', JSON.stringify(demoUser));
+
+          toast({
+            title: 'Willkommen zurück!',
+            description: 'Demo-Modus: Sie wurden erfolgreich angemeldet.',
+          });
+
+          // Redirect based on role
+          if (userRole === 'admin') {
+            navigate('/dashboard/admin');
+          } else if (userRole === 'landlord') {
+            navigate('/dashboard/landlord');
+          } else {
+            navigate('/dashboard/tenant');
+          }
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // Online mode - use Supabase
       if (mode === 'register') {
         // Validate passwords match
         if (formData.password !== formData.confirmPassword) {

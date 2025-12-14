@@ -1,5 +1,6 @@
-import { supabase } from './supabase';
-import { Amenity, Booking, BookingStatus, Space, SpaceCategory } from '@/types';
+import { supabase, isOfflineMode } from './supabase';
+import { Amenity, Booking, BookingStatus, Space, SpaceCategory, DepositStatus, PaymentStatus } from '@/types';
+import { mockSpaces, mockBookings } from '@/data/mockData';
 
 // Raw DB row types
 interface SpaceRow {
@@ -83,6 +84,20 @@ const mapBooking = (row: BookingRow): Booking => ({
 });
 
 export async function fetchSpaces(): Promise<Space[]> {
+  if (isOfflineMode) {
+    // Return mock data with extended properties for offline/demo mode
+    return mockSpaces.map(space => ({
+      ...space,
+      allowedUsageTypes: ['popup_store', 'office', 'event'] as const,
+      minRentalDays: 1,
+      maxRentalDays: 30,
+      depositRequired: true,
+      depositAmount: space.pricePerDay * 2,
+      cancellationPolicy: 'flexible' as const,
+      instantBooking: false,
+    }));
+  }
+
   const { data, error } = await supabase
     .from('spaces')
     .select('*')
@@ -94,6 +109,21 @@ export async function fetchSpaces(): Promise<Space[]> {
 }
 
 export async function fetchSpaceById(id: string): Promise<Space | null> {
+  if (isOfflineMode) {
+    const space = mockSpaces.find(s => s.id === id);
+    if (!space) return null;
+    return {
+      ...space,
+      allowedUsageTypes: ['popup_store', 'office', 'event'] as const,
+      minRentalDays: 1,
+      maxRentalDays: 30,
+      depositRequired: true,
+      depositAmount: space.pricePerDay * 2,
+      cancellationPolicy: 'flexible' as const,
+      instantBooking: false,
+    };
+  }
+
   const { data, error } = await supabase
     .from('spaces')
     .select('*')
@@ -104,7 +134,24 @@ export async function fetchSpaceById(id: string): Promise<Space | null> {
   return data ? mapSpace(data) : null;
 }
 
+// Helper to extend mock bookings with required properties
+function extendMockBooking(booking: typeof mockBookings[0]): Booking {
+  return {
+    ...booking,
+    paymentStatus: (booking.status === 'confirmed' ? 'paid' : 'pending') as PaymentStatus,
+    depositStatus: (booking.status === 'confirmed' ? 'held' : 'pending') as DepositStatus,
+    rentAmount: booking.totalPrice * 0.9,
+    depositAmount: booking.totalPrice * 0.1,
+  };
+}
+
 export async function fetchBookingsForTenant(tenantId: string): Promise<Booking[]> {
+  if (isOfflineMode) {
+    return mockBookings
+      .filter(b => b.tenantId === tenantId || tenantId === '11111111-1111-1111-1111-111111111111')
+      .map(extendMockBooking);
+  }
+
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
@@ -116,6 +163,12 @@ export async function fetchBookingsForTenant(tenantId: string): Promise<Booking[
 }
 
 export async function fetchBookingsForLandlord(landlordId: string): Promise<Booking[]> {
+  if (isOfflineMode) {
+    return mockBookings
+      .filter(b => b.landlordId === landlordId || landlordId === '22222222-2222-2222-2222-222222222222')
+      .map(extendMockBooking);
+  }
+
   const { data, error } = await supabase
     .from('bookings')
     .select('*')

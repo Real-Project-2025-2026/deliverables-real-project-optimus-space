@@ -6,8 +6,8 @@ const footerLinks = {
     title: 'Produkt',
     links: [
       { name: 'Flächen suchen', href: '/search' },
+      { name: 'So funktioniert\'s', href: '/how-it-works' },
       { name: 'Fläche inserieren', href: '/landlords' },
-      { name: 'Preise', href: '/pricing' },
     ],
   },
   company: {
