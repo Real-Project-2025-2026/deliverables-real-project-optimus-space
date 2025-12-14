@@ -26,6 +26,20 @@ services:
           - /rest/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - https://demo.spacefinder.de
+            - http://localhost:3000
+            - http://localhost:3002
+          credentials: true
+          headers:
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          exposed_headers:
+            - Content-Range
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: true
@@ -46,6 +60,18 @@ services:
           - /auth/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - https://demo.spacefinder.de
+            - http://localhost:3000
+            - http://localhost:3002
+          credentials: true
+          headers:
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -66,6 +92,18 @@ services:
           - /realtime/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - https://demo.spacefinder.de
+            - http://localhost:3000
+            - http://localhost:3002
+          credentials: true
+          headers:
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -86,6 +124,18 @@ services:
           - /storage/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - https://demo.spacefinder.de
+            - http://localhost:3000
+            - http://localhost:3002
+          credentials: true
+          headers:
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
