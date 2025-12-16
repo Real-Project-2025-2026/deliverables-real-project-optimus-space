@@ -25,7 +25,7 @@ const categories = [
   {
     icon: Search,
     title: 'Erste Schritte',
-    description: 'Lernen Sie die Grundlagen von Spacefinder kennen',
+    description: 'Lernen Sie die Grundlagen von Spacefindr kennen',
     articles: [
       'Wie erstelle ich ein Konto?',
       'Wie finde ich die richtige Fläche?',

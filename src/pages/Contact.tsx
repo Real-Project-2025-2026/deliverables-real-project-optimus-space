@@ -23,7 +23,7 @@ const contactInfo = [
   {
     icon: Mail,
     title: 'E-Mail',
-    value: 'support@spacefinder.de',
+    value: 'support@spacefindr.de',
     description: 'Wir antworten innerhalb von 24 Stunden',
   },
   {
@@ -269,7 +269,7 @@ export default function Contact() {
                       <p className="text-sm text-muted-foreground">
                         Für Zahlungsanfragen wenden Sie sich bitte an unsere
                         Buchhaltung unter{' '}
-                        <span className="text-primary">billing@spacefinder.de</span>
+                        <span className="text-primary">billing@spacefindr.de</span>
                       </p>
                     </Card>
                     <Card className="p-4">
@@ -278,7 +278,7 @@ export default function Contact() {
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         Für Kooperationsanfragen kontaktieren Sie uns unter{' '}
-                        <span className="text-primary">partner@spacefinder.de</span>
+                        <span className="text-primary">partner@spacefindr.de</span>
                       </p>
                     </Card>
                   </div>
@@ -289,7 +289,7 @@ export default function Contact() {
                     <Building2 className="w-8 h-8 text-primary flex-shrink-0" />
                     <div>
                       <h3 className="font-semibold text-foreground mb-2">
-                        Spacefinder GmbH
+                        Spacefindr GmbH
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         Musterstraße 123

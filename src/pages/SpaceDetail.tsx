@@ -1,19 +1,27 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 import { categoryLabels, amenityLabels } from '@/data/mockData';
 import {
   ArrowLeft, MapPin, Maximize, Star, Calendar,
   Wifi, Zap, Droplets, Car, Thermometer, Wind,
-  Shield, Accessibility, User, ChevronLeft, ChevronRight
+  Shield, Accessibility, User, ChevronLeft, ChevronRight, Loader2, X
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchSpaceById } from '@/lib/api';
+import { bookingService } from '@/lib/services';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -104,14 +112,87 @@ function LocationMap({ latitude, longitude, title }: { latitude: number; longitu
 
 export default function SpaceDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [message, setMessage] = useState('');
   const { data: space, isLoading, isError } = useQuery({
     queryKey: ['space', id],
     queryFn: () => fetchSpaceById(id || ''),
     enabled: Boolean(id),
   });
+
+  // Booking mutation
+  const bookingMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Sie müssen angemeldet sein');
+      if (!space) throw new Error('Fläche nicht gefunden');
+      if (!startDate || !endDate) throw new Error('Bitte wählen Sie Start- und Enddatum');
+
+      return bookingService.create(
+        {
+          spaceId: space.id,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          message: message || undefined,
+        },
+        user.id,
+        user.name || user.email,
+        {
+          id: space.id,
+          title: space.title,
+          images: space.images,
+          ownerId: space.ownerId,
+          ownerName: space.ownerName,
+          pricePerDay: space.pricePerDay,
+        }
+      );
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Anfrage gesendet!',
+        description: 'Der Vermieter wird Ihre Anfrage prufen.',
+      });
+      navigate('/dashboard/tenant');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Die Buchung konnte nicht erstellt werden.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleBooking = () => {
+    if (!user) {
+      toast({
+        title: 'Anmeldung erforderlich',
+        description: 'Bitte melden Sie sich an, um eine Buchung anzufragen.',
+        variant: 'destructive',
+      });
+      navigate('/auth?mode=login');
+      return;
+    }
+    bookingMutation.mutate();
+  };
+
+  // Calculate days and total
+  const calculateDays = () => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const days = calculateDays();
+  const rentAmount = space ? days * space.pricePerDay : 0;
+  const serviceAmount = Math.round(rentAmount * 0.1);
+  const totalAmount = rentAmount + serviceAmount;
 
   if (isLoading) {
     return (
@@ -156,26 +237,33 @@ export default function SpaceDetail() {
         {/* Image Gallery */}
         <div className="container pb-8">
           <div className="grid grid-cols-4 gap-2 h-[400px] md:h-[500px] rounded-xl overflow-hidden">
-            <div className="col-span-4 md:col-span-2 md:row-span-2 relative group">
-              <img 
-                src={images[selectedImageIndex]} 
+            <div
+              className="col-span-4 md:col-span-2 md:row-span-2 relative group cursor-pointer"
+              onClick={() => { setSelectedImageIndex(0); setLightboxOpen(true); }}
+            >
+              <img
+                src={images[0]}
                 alt={space.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 bg-gradient-to-t from-foreground/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Maximize className="w-8 h-8 text-white" />
+              </div>
             </div>
             {images.slice(1, 5).map((img, index) => (
-              <div 
+              <div
                 key={index}
                 className="hidden md:block relative cursor-pointer group"
-                onClick={() => setSelectedImageIndex(index + 1)}
+                onClick={() => { setSelectedImageIndex(index + 1); setLightboxOpen(true); }}
               >
-                <img 
-                  src={img} 
+                <img
+                  src={img}
                   alt={`${space.title} ${index + 2}`}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Maximize className="w-6 h-6 text-white" />
+                </div>
               </div>
             ))}
           </div>
@@ -323,6 +411,7 @@ export default function SpaceDetail() {
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
                         className="w-full px-3 py-2 border border-input rounded-lg bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                     </div>
@@ -334,33 +423,55 @@ export default function SpaceDetail() {
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
+                        min={startDate || new Date().toISOString().split('T')[0]}
                         className="w-full px-3 py-2 border border-input rounded-lg bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Nachricht (optional)
+                      </label>
+                      <Textarea
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="z.B. Nutzungszweck oder Fragen..."
+                        rows={3}
                       />
                     </div>
                   </div>
 
-                  <Button variant="accent" className="w-full" size="lg">
-                    <Calendar className="w-5 h-5 mr-2" />
-                    Buchungsanfrage senden
+                  <Button
+                    variant="accent"
+                    className="w-full"
+                    size="lg"
+                    onClick={handleBooking}
+                    disabled={!startDate || !endDate || bookingMutation.isPending}
+                  >
+                    {bookingMutation.isPending ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <Calendar className="w-5 h-5 mr-2" />
+                    )}
+                    {bookingMutation.isPending ? 'Wird gesendet...' : 'Buchungsanfrage senden'}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center mt-4">
-                    Sie werden erst belastet, wenn der Vermieter bestätigt.
+                    Sie werden erst belastet, wenn der Vermieter bestatigt.
                   </p>
 
-                  {/* Price breakdown placeholder */}
+                  {/* Price breakdown */}
                   <div className="mt-6 pt-6 border-t border-border space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">€{space.pricePerDay} × 1 Tag</span>
-                      <span className="text-foreground">€{space.pricePerDay}</span>
+                      <span className="text-muted-foreground">EUR{space.pricePerDay} x {days || 1} {days === 1 ? 'Tag' : 'Tage'}</span>
+                      <span className="text-foreground">EUR{rentAmount || space.pricePerDay}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Servicegebühr</span>
-                      <span className="text-foreground">€{Math.round(space.pricePerDay * 0.1)}</span>
+                      <span className="text-muted-foreground">Servicegebuhr</span>
+                      <span className="text-foreground">EUR{serviceAmount || Math.round(space.pricePerDay * 0.1)}</span>
                     </div>
                     <div className="flex justify-between font-semibold pt-2 border-t border-border">
                       <span>Gesamt</span>
-                      <span>€{space.pricePerDay + Math.round(space.pricePerDay * 0.1)}</span>
+                      <span>EUR{totalAmount || (space.pricePerDay + Math.round(space.pricePerDay * 0.1))}</span>
                     </div>
                   </div>
                 </Card>
@@ -369,6 +480,70 @@ export default function SpaceDetail() {
           </div>
         </div>
       </main>
+
+      {/* Image Lightbox */}
+      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Close button */}
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+
+            {/* Previous button */}
+            {images.length > 1 && (
+              <button
+                onClick={() => setSelectedImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+                className="absolute left-4 z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <ChevronLeft className="w-8 h-8 text-white" />
+              </button>
+            )}
+
+            {/* Image */}
+            <img
+              src={images[selectedImageIndex]}
+              alt={`${space.title} - Bild ${selectedImageIndex + 1}`}
+              className="max-w-full max-h-[85vh] object-contain"
+            />
+
+            {/* Next button */}
+            {images.length > 1 && (
+              <button
+                onClick={() => setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
+                className="absolute right-4 z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <ChevronRight className="w-8 h-8 text-white" />
+              </button>
+            )}
+
+            {/* Image counter */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 text-white text-sm">
+              {selectedImageIndex + 1} / {images.length}
+            </div>
+
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 max-w-[80vw] overflow-x-auto p-2">
+                {images.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`flex-shrink-0 w-16 h-12 rounded overflow-hidden border-2 transition-all ${
+                      index === selectedImageIndex ? 'border-white' : 'border-transparent opacity-50 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

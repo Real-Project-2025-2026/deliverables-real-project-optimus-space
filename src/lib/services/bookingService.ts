@@ -9,6 +9,53 @@ import {
 } from '@/types';
 import { mockBookings, mockSpaces } from '@/data/mockData';
 
+// ============================================
+// OFFLINE MODE STORAGE
+// ============================================
+
+const USER_BOOKINGS_KEY = 'spacefindr_user_bookings';
+
+// Get user-created bookings from localStorage
+function getUserBookings(): Booking[] {
+  try {
+    const stored = localStorage.getItem(USER_BOOKINGS_KEY);
+    if (!stored) return [];
+    const bookings = JSON.parse(stored);
+    // Convert date strings back to Date objects
+    return bookings.map((b: Booking) => ({
+      ...b,
+      startDate: new Date(b.startDate),
+      endDate: new Date(b.endDate),
+      createdAt: new Date(b.createdAt),
+      updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Save user bookings to localStorage
+function saveUserBookings(bookings: Booking[]): void {
+  localStorage.setItem(USER_BOOKINGS_KEY, JSON.stringify(bookings));
+}
+
+// Add a user-created booking
+function addUserBooking(booking: Booking): void {
+  const bookings = getUserBookings();
+  bookings.push(booking);
+  saveUserBookings(bookings);
+}
+
+// Update a user-created booking
+function updateUserBooking(id: string, updates: Partial<Booking>): Booking | null {
+  const bookings = getUserBookings();
+  const index = bookings.findIndex(b => b.id === id);
+  if (index === -1) return null;
+  bookings[index] = { ...bookings[index], ...updates, updatedAt: new Date() };
+  saveUserBookings(bookings);
+  return bookings[index];
+}
+
 // Helper to extend mock bookings with required properties
 function extendMockBooking(booking: typeof mockBookings[0]): Booking {
   return {
@@ -120,8 +167,9 @@ export const bookingService = {
   // Fetch bookings for tenant
   async fetchForTenant(tenantId: string): Promise<Booking[]> {
     if (isOfflineMode) {
-      // Return all demo bookings for the demo tenant
-      return mockBookings.map(extendMockBooking);
+      // Return only bookings created by this tenant
+      const userBookings = getUserBookings().filter(b => b.tenantId === tenantId);
+      return userBookings;
     }
 
     const { data, error } = await supabase
@@ -137,8 +185,9 @@ export const bookingService = {
   // Fetch bookings for landlord
   async fetchForLandlord(landlordId: string): Promise<Booking[]> {
     if (isOfflineMode) {
-      // Return all demo bookings for the demo landlord
-      return mockBookings.map(extendMockBooking);
+      // Return only bookings for this landlord's spaces
+      const userBookings = getUserBookings().filter(b => b.landlordId === landlordId);
+      return userBookings;
     }
 
     const { data, error } = await supabase
@@ -233,8 +282,44 @@ export const bookingService = {
     input: BookingFormInput,
     tenantId: string,
     tenantName: string,
-    space: { id: string; title: string; images: string[]; ownerId: string; ownerName: string }
+    space: { id: string; title: string; images: string[]; ownerId: string; ownerName: string; pricePerDay: number }
   ): Promise<Booking> {
+    if (isOfflineMode) {
+      // Calculate days
+      const days = Math.ceil(
+        (input.endDate.getTime() - input.startDate.getTime()) / (1000 * 60 * 60 * 24)
+      ) + 1;
+      const rentAmount = days * space.pricePerDay;
+      const depositAmount = space.pricePerDay * 2;
+      const totalAmount = rentAmount + depositAmount;
+
+      // Create booking in localStorage
+      const newBooking: Booking = {
+        id: `user-booking-${Date.now()}`,
+        spaceId: input.spaceId,
+        spaceName: space.title,
+        spaceImage: space.images[0] || '/placeholder.svg',
+        tenantId,
+        tenantName,
+        landlordId: space.ownerId,
+        landlordName: space.ownerName,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        totalDays: days,
+        totalPrice: totalAmount,
+        rentAmount,
+        depositAmount,
+        status: 'requested',
+        paymentStatus: 'pending',
+        depositStatus: 'pending',
+        message: input.message,
+        createdAt: new Date(),
+      };
+
+      addUserBooking(newBooking);
+      return newBooking;
+    }
+
     // Check availability
     const isAvailable = await this.checkAvailability(
       input.spaceId,
@@ -283,6 +368,12 @@ export const bookingService = {
 
   // Update booking status
   async updateStatus(id: string, status: BookingStatus): Promise<Booking> {
+    if (isOfflineMode) {
+      const updated = updateUserBooking(id, { status });
+      if (!updated) throw new Error('Buchung nicht gefunden');
+      return updated;
+    }
+
     const { data, error } = await supabase
       .from('bookings')
       .update({ status })
@@ -347,6 +438,12 @@ export const bookingService = {
 
   // Cancel booking
   async cancel(id: string): Promise<Booking> {
+    if (isOfflineMode) {
+      const updated = updateUserBooking(id, { status: 'cancelled', depositStatus: 'released' });
+      if (!updated) throw new Error('Buchung nicht gefunden');
+      return updated;
+    }
+
     const { data, error } = await supabase
       .from('bookings')
       .update({
@@ -368,6 +465,12 @@ export const bookingService = {
 
   // Release deposit
   async releaseDeposit(id: string): Promise<Booking> {
+    if (isOfflineMode) {
+      const updated = updateUserBooking(id, { depositStatus: 'released' });
+      if (!updated) throw new Error('Buchung nicht gefunden');
+      return updated;
+    }
+
     const { data, error } = await supabase
       .from('bookings')
       .update({ deposit_status: 'released' })
@@ -386,6 +489,12 @@ export const bookingService = {
   ): Promise<Booking> {
     const depositStatus: DepositStatus =
       type === 'full' ? 'withheld_full' : 'withheld_partial';
+
+    if (isOfflineMode) {
+      const updated = updateUserBooking(id, { depositStatus });
+      if (!updated) throw new Error('Buchung nicht gefunden');
+      return updated;
+    }
 
     const { data, error } = await supabase
       .from('bookings')

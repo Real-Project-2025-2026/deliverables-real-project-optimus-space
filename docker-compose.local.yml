@@ -1,0 +1,21 @@
+# Simple local Docker configuration
+# Runs the app on localhost:8080
+#
+# Usage:
+#   docker compose -f docker-compose.local.yml up -d
+#
+# This runs the frontend in offline/demo mode (no backend required)
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

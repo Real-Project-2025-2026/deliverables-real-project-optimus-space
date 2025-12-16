@@ -38,10 +38,10 @@ const features = [
 ];
 
 const stats = [
-  { value: '1.200+', label: 'Gewerbeflächen' },
-  { value: '45+', label: 'Städte' },
-  { value: '98%', label: 'Zufriedenheit' },
-  { value: '24h', label: 'Antwortzeit' },
+  { value: '6+', label: 'Gewerbeflächen' },
+  { value: '1+', label: 'Städte' },
+  { value: '95%', label: 'Zufriedenheit' },
+  { value: '<24h', label: 'Antwortzeit' },
 ];
 
 export default function Index() {
@@ -296,16 +296,16 @@ export default function Index() {
               Erstellen Sie ein kostenloses Konto und finden Sie noch heute die perfekte Gewerbefläche.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="accent" size="xl" asChild>
+              <Button variant="accent" size="xl" className="bg-white text-foreground hover:bg-white/90" asChild>
                 <Link to="/auth?mode=register">
                   Jetzt registrieren
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
-              <Button 
-                variant="outline" 
-                size="xl" 
-                className="border-background/30 text-background hover:bg-background/10"
+              <Button
+                variant="outline"
+                size="xl"
+                className="border-white/50 text-white bg-transparent hover:bg-white/10"
                 asChild
               >
                 <Link to="/search">

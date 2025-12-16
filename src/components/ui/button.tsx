@@ -11,14 +11,16 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md active:scale-[0.98]",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
-        outline: "border border-input bg-surface hover:bg-secondary hover:text-secondary-foreground",
+        outline: "border border-input bg-surface text-foreground hover:bg-secondary hover:text-secondary-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-secondary hover:text-secondary-foreground",
+        ghost: "text-foreground hover:bg-secondary hover:text-secondary-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        accent: "bg-accent text-accent-foreground shadow-sm hover:shadow-md active:scale-[0.98] font-semibold hover:bg-accent-hover",
+        accent: "bg-accent text-white shadow-sm hover:shadow-md active:scale-[0.98] font-semibold hover:bg-accent-hover",
         hero: "bg-primary text-primary-foreground shadow-md hover:shadow-lg active:scale-[0.98] font-semibold text-base",
         "hero-outline": "border-2 border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground font-semibold text-base",
         success: "bg-success text-success-foreground hover:bg-success/90 shadow-sm",
+        // High-contrast CTA button - guaranteed good contrast on any background
+        cta: "bg-[#0047AB] text-white shadow-md hover:bg-[#003d91] hover:shadow-lg active:scale-[0.98] font-semibold border-2 border-white/20",
       },
       size: {
         default: "h-10 px-4 py-2",

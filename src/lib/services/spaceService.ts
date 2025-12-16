@@ -10,9 +10,105 @@ import {
 } from '@/types';
 import { mockSpaces } from '@/data/mockData';
 
+// ============================================
+// OFFLINE MODE STORAGE
+// ============================================
+
+const SPACE_EDITS_KEY = 'spacefindr_space_edits';
+const SPACE_IMAGES_KEY = 'spacefindr_space_images';
+const USER_SPACES_KEY = 'spacefindr_user_spaces'; // Spaces created by users
+
+interface SpaceEdit {
+  [spaceId: string]: Partial<Space>;
+}
+
+interface SpaceImages {
+  [spaceId: string]: string[];
+}
+
+// Get stored edits from localStorage
+function getStoredEdits(): SpaceEdit {
+  try {
+    const stored = localStorage.getItem(SPACE_EDITS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Save edits to localStorage
+function saveStoredEdits(edits: SpaceEdit): void {
+  localStorage.setItem(SPACE_EDITS_KEY, JSON.stringify(edits));
+}
+
+// Get stored images from localStorage
+function getStoredImages(): SpaceImages {
+  try {
+    const stored = localStorage.getItem(SPACE_IMAGES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Save images to localStorage
+function saveStoredImages(images: SpaceImages): void {
+  localStorage.setItem(SPACE_IMAGES_KEY, JSON.stringify(images));
+}
+
+// Get user-created spaces from localStorage
+function getUserSpaces(): Space[] {
+  try {
+    const stored = localStorage.getItem(USER_SPACES_KEY);
+    if (!stored) return [];
+    const spaces = JSON.parse(stored);
+    // Convert date strings back to Date objects
+    return spaces.map((s: Space) => ({
+      ...s,
+      createdAt: new Date(s.createdAt),
+      updatedAt: s.updatedAt ? new Date(s.updatedAt) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Save user-created spaces to localStorage
+function saveUserSpaces(spaces: Space[]): void {
+  localStorage.setItem(USER_SPACES_KEY, JSON.stringify(spaces));
+}
+
+// Add a user-created space
+function addUserSpace(space: Space): void {
+  const spaces = getUserSpaces();
+  spaces.push(space);
+  saveUserSpaces(spaces);
+}
+
+// Update a user-created space
+function updateUserSpace(id: string, updates: Partial<Space>): Space | null {
+  const spaces = getUserSpaces();
+  const index = spaces.findIndex(s => s.id === id);
+  if (index === -1) return null;
+  spaces[index] = { ...spaces[index], ...updates, updatedAt: new Date() };
+  saveUserSpaces(spaces);
+  return spaces[index];
+}
+
+// Delete a user-created space
+function deleteUserSpace(id: string): void {
+  const spaces = getUserSpaces();
+  saveUserSpaces(spaces.filter(s => s.id !== id));
+}
+
 // Helper to extend mock spaces with required properties
 function extendMockSpace(space: typeof mockSpaces[0]): Space {
-  return {
+  const edits = getStoredEdits();
+  const storedImages = getStoredImages();
+  const spaceEdit = edits[space.id] || {};
+  const customImages = storedImages[space.id];
+
+  const baseSpace: Space = {
     ...space,
     allowedUsageTypes: ['popup_store', 'office', 'event'] as UsageType[],
     minRentalDays: 1,
@@ -22,6 +118,19 @@ function extendMockSpace(space: typeof mockSpaces[0]): Space {
     cancellationPolicy: 'flexible' as CancellationPolicy,
     instantBooking: false,
   };
+
+  // Apply stored edits
+  const mergedSpace = {
+    ...baseSpace,
+    ...spaceEdit,
+  };
+
+  // Apply stored images if any
+  if (customImages && customImages.length > 0) {
+    mergedSpace.images = customImages;
+  }
+
+  return mergedSpace;
 }
 
 // ============================================
@@ -121,10 +230,12 @@ const mapSpaceAvailability = (row: SpaceAvailabilityRow): SpaceAvailability => (
 // ============================================
 
 export const spaceService = {
-  // Fetch all active spaces
+  // Fetch all active spaces (mock + user-created)
   async fetchAll(): Promise<Space[]> {
     if (isOfflineMode) {
-      return mockSpaces.map(extendMockSpace);
+      const mockExtended = mockSpaces.map(extendMockSpace);
+      const userCreated = getUserSpaces().filter(s => s.isActive !== false);
+      return [...userCreated, ...mockExtended];
     }
 
     const { data, error } = await supabase
@@ -137,9 +248,19 @@ export const spaceService = {
     return (data || []).map(mapSpace);
   },
 
-  // Fetch space by ID
+  // Fetch space by ID (check user-created first, then mock)
   async fetchById(id: string): Promise<Space | null> {
     if (isOfflineMode) {
+      // Check user-created spaces first
+      const userSpace = getUserSpaces().find(s => s.id === id);
+      if (userSpace) {
+        const images = getStoredImages()[id];
+        if (images && images.length > 0) {
+          userSpace.images = images;
+        }
+        return userSpace;
+      }
+      // Then check mock spaces
       const space = mockSpaces.find(s => s.id === id);
       return space ? extendMockSpace(space) : null;
     }
@@ -154,11 +275,19 @@ export const spaceService = {
     return data ? mapSpace(data) : null;
   },
 
-  // Fetch spaces by owner (landlord)
+  // Fetch spaces by owner (landlord) - only returns user's own spaces
   async fetchByOwner(ownerId: string): Promise<Space[]> {
     if (isOfflineMode) {
-      // Return some spaces for demo landlord
-      return mockSpaces.slice(0, 3).map(extendMockSpace);
+      // Only return spaces created by this user
+      const userSpaces = getUserSpaces().filter(s => s.ownerId === ownerId);
+      // Apply stored images
+      return userSpaces.map(space => {
+        const images = getStoredImages()[space.id];
+        if (images && images.length > 0) {
+          return { ...space, images };
+        }
+        return space;
+      });
     }
 
     const { data, error } = await supabase
@@ -173,6 +302,41 @@ export const spaceService = {
 
   // Create new space
   async create(input: SpaceFormInput, ownerId: string, ownerName: string): Promise<Space> {
+    if (isOfflineMode) {
+      // In offline mode, create and persist the space
+      const newSpace: Space = {
+        id: `user-space-${Date.now()}`,
+        title: input.title,
+        description: input.description,
+        address: input.address,
+        city: input.city,
+        postalCode: input.postalCode,
+        latitude: input.latitude ?? 48.1351, // Default to Munich
+        longitude: input.longitude ?? 11.5820,
+        pricePerDay: input.pricePerDay,
+        pricePerWeek: input.pricePerWeek,
+        pricePerMonth: input.pricePerMonth,
+        size: input.size,
+        category: input.category,
+        amenities: input.amenities,
+        allowedUsageTypes: input.allowedUsageTypes || [],
+        images: ['/placeholder.svg'],
+        ownerId,
+        ownerName,
+        isActive: true,
+        minRentalDays: input.minRentalDays ?? 1,
+        maxRentalDays: input.maxRentalDays ?? 365,
+        depositRequired: input.depositRequired ?? true,
+        depositAmount: input.depositAmount,
+        cancellationPolicy: input.cancellationPolicy ?? 'flexible',
+        instantBooking: input.instantBooking ?? false,
+        createdAt: new Date(),
+      };
+      // Save to localStorage
+      addUserSpace(newSpace);
+      return newSpace;
+    }
+
     const { data, error } = await supabase
       .from('spaces')
       .insert({
@@ -209,6 +373,28 @@ export const spaceService = {
 
   // Update space
   async update(id: string, input: Partial<SpaceFormInput>): Promise<Space> {
+    if (isOfflineMode) {
+      // Check if it's a user-created space first
+      const userSpace = updateUserSpace(id, input as Partial<Space>);
+      if (userSpace) {
+        return userSpace;
+      }
+
+      // Fall back to mock space edits
+      const edits = getStoredEdits();
+      edits[id] = {
+        ...edits[id],
+        ...input,
+        updatedAt: new Date(),
+      };
+      saveStoredEdits(edits);
+
+      // Return updated space
+      const space = mockSpaces.find(s => s.id === id);
+      if (!space) throw new Error('Space nicht gefunden');
+      return extendMockSpace(space);
+    }
+
     const updateData: Record<string, unknown> = {};
 
     if (input.title !== undefined) updateData.title = input.title;
@@ -245,6 +431,18 @@ export const spaceService = {
 
   // Deactivate space (soft delete)
   async deactivate(id: string): Promise<void> {
+    if (isOfflineMode) {
+      // Check if it's a user-created space first
+      const updated = updateUserSpace(id, { isActive: false });
+      if (updated) return;
+
+      // Fall back to mock space edits
+      const edits = getStoredEdits();
+      edits[id] = { ...edits[id], isActive: false };
+      saveStoredEdits(edits);
+      return;
+    }
+
     const { error } = await supabase
       .from('spaces')
       .update({ is_active: false })
@@ -255,6 +453,18 @@ export const spaceService = {
 
   // Activate space
   async activate(id: string): Promise<void> {
+    if (isOfflineMode) {
+      // Check if it's a user-created space first
+      const updated = updateUserSpace(id, { isActive: true });
+      if (updated) return;
+
+      // Fall back to mock space edits
+      const edits = getStoredEdits();
+      edits[id] = { ...edits[id], isActive: true };
+      saveStoredEdits(edits);
+      return;
+    }
+
     const { error } = await supabase
       .from('spaces')
       .update({ is_active: true })
@@ -265,6 +475,14 @@ export const spaceService = {
 
   // Update space images
   async updateImages(id: string, images: string[]): Promise<void> {
+    if (isOfflineMode) {
+      // Store images in localStorage
+      const storedImages = getStoredImages();
+      storedImages[id] = images;
+      saveStoredImages(storedImages);
+      return;
+    }
+
     const { error } = await supabase
       .from('spaces')
       .update({ images })
@@ -279,6 +497,10 @@ export const spaceService = {
 
   // Fetch availability for a space
   async fetchAvailability(spaceId: string): Promise<SpaceAvailability[]> {
+    if (isOfflineMode) {
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('space_availability')
       .select('*')
@@ -297,6 +519,18 @@ export const spaceService = {
     type: 'available' | 'blocked' | 'maintenance',
     notes?: string
   ): Promise<SpaceAvailability> {
+    if (isOfflineMode) {
+      return {
+        id: `demo-avail-${Date.now()}`,
+        spaceId,
+        startDate,
+        endDate,
+        availabilityType: type,
+        notes,
+        createdAt: new Date(),
+      };
+    }
+
     const { data, error } = await supabase
       .from('space_availability')
       .insert({
@@ -315,6 +549,10 @@ export const spaceService = {
 
   // Remove availability period
   async removeAvailability(id: string): Promise<void> {
+    if (isOfflineMode) {
+      return;
+    }
+
     const { error } = await supabase
       .from('space_availability')
       .delete()
@@ -329,6 +567,10 @@ export const spaceService = {
     startDate: Date,
     endDate: Date
   ): Promise<boolean> {
+    if (isOfflineMode) {
+      return true;
+    }
+
     // Check for blocked periods
     const { data: blockedPeriods } = await supabase
       .from('space_availability')
@@ -358,7 +600,7 @@ export const spaceService = {
   // IMAGE UPLOAD
   // ============================================
 
-  // Upload image to storage
+  // Upload image to storage (returns base64 in offline mode)
   async uploadImage(spaceId: string, file: File): Promise<string> {
     // In offline mode, use base64 data URL
     if (isOfflineMode) {
@@ -390,6 +632,11 @@ export const spaceService = {
 
   // Delete image from storage
   async deleteImage(imageUrl: string): Promise<void> {
+    // In offline mode, images are stored as base64 - nothing to delete from storage
+    if (isOfflineMode) {
+      return;
+    }
+
     // Extract path from URL
     const urlParts = imageUrl.split('/space-images/');
     if (urlParts.length !== 2) return;
@@ -399,5 +646,11 @@ export const spaceService = {
       .remove([urlParts[1]]);
 
     if (error) throw error;
+  },
+
+  // Get images for a space (merges stored images)
+  getImagesForSpace(spaceId: string): string[] {
+    const storedImages = getStoredImages();
+    return storedImages[spaceId] || [];
   },
 };

@@ -12,7 +12,8 @@ if (isOfflineMode) {
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
+    autoRefreshToken: !isOfflineMode,
+    persistSession: !isOfflineMode,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
   },
 });

@@ -1,6 +1,89 @@
 import { supabase, isOfflineMode } from './supabase';
-import { Amenity, Booking, BookingStatus, Space, SpaceCategory, DepositStatus, PaymentStatus } from '@/types';
+import { Amenity, Booking, BookingStatus, Space, SpaceCategory, DepositStatus, PaymentStatus, UsageType, CancellationPolicy } from '@/types';
 import { mockSpaces, mockBookings } from '@/data/mockData';
+
+// ============================================
+// SHARED OFFLINE STORAGE (same keys as spaceService)
+// ============================================
+
+const SPACE_EDITS_KEY = 'spacefindr_space_edits';
+const SPACE_IMAGES_KEY = 'spacefindr_space_images';
+const USER_SPACES_KEY = 'spacefindr_user_spaces';
+
+interface SpaceEdit {
+  [spaceId: string]: Partial<Space>;
+}
+
+interface SpaceImages {
+  [spaceId: string]: string[];
+}
+
+function getStoredEdits(): SpaceEdit {
+  try {
+    const stored = localStorage.getItem(SPACE_EDITS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getStoredImages(): SpaceImages {
+  try {
+    const stored = localStorage.getItem(SPACE_IMAGES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Get user-created spaces from localStorage
+function getUserSpaces(): Space[] {
+  try {
+    const stored = localStorage.getItem(USER_SPACES_KEY);
+    if (!stored) return [];
+    const spaces = JSON.parse(stored);
+    // Convert date strings back to Date objects
+    return spaces.map((s: Space) => ({
+      ...s,
+      createdAt: new Date(s.createdAt),
+      updatedAt: s.updatedAt ? new Date(s.updatedAt) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Helper to extend mock spaces with stored edits and images
+function extendMockSpaceWithStorage(space: typeof mockSpaces[0]): Space {
+  const edits = getStoredEdits();
+  const storedImages = getStoredImages();
+  const spaceEdit = edits[space.id] || {};
+  const customImages = storedImages[space.id];
+
+  const baseSpace: Space = {
+    ...space,
+    allowedUsageTypes: ['popup_store', 'office', 'event'] as UsageType[],
+    minRentalDays: 1,
+    maxRentalDays: 30,
+    depositRequired: true,
+    depositAmount: space.pricePerDay * 2,
+    cancellationPolicy: 'flexible' as CancellationPolicy,
+    instantBooking: false,
+  };
+
+  // Apply stored edits
+  const mergedSpace = {
+    ...baseSpace,
+    ...spaceEdit,
+  };
+
+  // Apply stored images if any
+  if (customImages && customImages.length > 0) {
+    mergedSpace.images = customImages;
+  }
+
+  return mergedSpace;
+}
 
 // Raw DB row types
 interface SpaceRow {
@@ -85,17 +168,21 @@ const mapBooking = (row: BookingRow): Booking => ({
 
 export async function fetchSpaces(): Promise<Space[]> {
   if (isOfflineMode) {
-    // Return mock data with extended properties for offline/demo mode
-    return mockSpaces.map(space => ({
-      ...space,
-      allowedUsageTypes: ['popup_store', 'office', 'event'] as const,
-      minRentalDays: 1,
-      maxRentalDays: 30,
-      depositRequired: true,
-      depositAmount: space.pricePerDay * 2,
-      cancellationPolicy: 'flexible' as const,
-      instantBooking: false,
-    }));
+    // Return mock data with stored edits and images for offline/demo mode
+    // Also include user-created spaces
+    const mockExtended = mockSpaces.map(extendMockSpaceWithStorage);
+    const storedImages = getStoredImages();
+    const userCreated = getUserSpaces()
+      .filter(s => s.isActive !== false)
+      .map(space => {
+        // Apply stored images if any
+        const images = storedImages[space.id];
+        if (images && images.length > 0) {
+          return { ...space, images };
+        }
+        return space;
+      });
+    return [...userCreated, ...mockExtended];
   }
 
   const { data, error } = await supabase
@@ -110,18 +197,20 @@ export async function fetchSpaces(): Promise<Space[]> {
 
 export async function fetchSpaceById(id: string): Promise<Space | null> {
   if (isOfflineMode) {
+    // Check user-created spaces first
+    const storedImages = getStoredImages();
+    const userSpace = getUserSpaces().find(s => s.id === id);
+    if (userSpace) {
+      const images = storedImages[id];
+      if (images && images.length > 0) {
+        return { ...userSpace, images };
+      }
+      return userSpace;
+    }
+    // Then check mock spaces
     const space = mockSpaces.find(s => s.id === id);
     if (!space) return null;
-    return {
-      ...space,
-      allowedUsageTypes: ['popup_store', 'office', 'event'] as const,
-      minRentalDays: 1,
-      maxRentalDays: 30,
-      depositRequired: true,
-      depositAmount: space.pricePerDay * 2,
-      cancellationPolicy: 'flexible' as const,
-      instantBooking: false,
-    };
+    return extendMockSpaceWithStorage(space);
   }
 
   const { data, error } = await supabase

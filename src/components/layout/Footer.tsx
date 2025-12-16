@@ -14,8 +14,6 @@ const footerLinks = {
     title: 'Unternehmen',
     links: [
       { name: 'Über uns', href: '/about' },
-      { name: 'Blog', href: '/blog' },
-      { name: 'Karriere', href: '/careers' },
     ],
   },
   legal: {
@@ -48,7 +46,7 @@ export function Footer() {
                 <Building2 className="w-5 h-5 text-primary-foreground" />
               </div>
               <span className="text-xl font-semibold">
-                Spacefinder
+                Spacefindr
               </span>
             </Link>
             <p className="text-sm text-background/60 leading-relaxed">
@@ -79,7 +77,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="mt-12 pt-8 border-t border-background/10 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-background/60">
-            © {new Date().getFullYear()} Spacefinder. Alle Rechte vorbehalten.
+            © {new Date().getFullYear()} Spacefindr. Alle Rechte vorbehalten.
           </p>
           <div className="flex items-center gap-6">
             <a href="#" className="text-background/60 hover:text-background transition-colors">

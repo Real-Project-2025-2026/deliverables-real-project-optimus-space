@@ -16,7 +16,7 @@
     --primary-dark: 220 70% 35%;
 
     /* Background & Surface */
-    --background: 220 20% 98%;
+    --background: 220 20% 95%;
     --foreground: 220 25% 12%;
     --surface: 0 0% 100%;
     --surface-elevated: 0 0% 100%;
@@ -34,8 +34,8 @@
     --secondary-foreground: 220 25% 25%;
 
     /* Muted */
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 15% 90%;
+    --muted-foreground: 220 15% 40%;
 
     /* Accent - Warm Amber for CTAs */
     --accent: 35 95% 55%;

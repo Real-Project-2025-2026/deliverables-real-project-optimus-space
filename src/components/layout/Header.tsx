@@ -1,9 +1,10 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Building2, Menu, X, Search, User, LogIn } from 'lucide-react';
+import { Building2, Menu, X, Search, User, LogIn, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
   { name: 'Flächen suchen', href: '/search' },
@@ -16,8 +17,22 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut, getUserRole, getUserName } = useAuth();
 
   const isHomePage = location.pathname === '/';
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const getDashboardPath = () => {
+    const role = getUserRole();
+    if (role === 'admin') return '/dashboard/admin';
+    if (role === 'landlord') return '/dashboard/landlord';
+    return '/dashboard/tenant';
+  };
 
   // Handle scroll to change header background
   useEffect(() => {
@@ -43,7 +58,7 @@ export function Header() {
             <Building2 className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="text-xl font-semibold text-foreground">
-            Spacefinder
+            Spacefindr
           </span>
         </Link>
 
@@ -73,17 +88,37 @@ export function Header() {
               Suchen
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/auth">
-              <LogIn className="w-4 h-4 mr-2" />
-              Anmelden
-            </Link>
-          </Button>
-          <Button variant="accent" size="sm" asChild>
-            <Link to="/auth?mode=register">
-              Registrieren
-            </Link>
-          </Button>
+          {user ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden lg:inline">
+                {getUserName()} ({getUserRole() === 'landlord' ? 'Vermieter' : getUserRole() === 'admin' ? 'Admin' : 'Mieter'})
+              </span>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={getDashboardPath()}>
+                  <User className="w-4 h-4 mr-2" />
+                  Dashboard
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Abmelden
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/auth">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Anmelden
+                </Link>
+              </Button>
+              <Button variant="accent" size="sm" asChild>
+                <Link to="/auth?mode=register">
+                  Registrieren
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -125,17 +160,34 @@ export function Header() {
                 </Link>
               ))}
               <div className="pt-4 border-t border-border space-y-2">
-                <Button variant="outline" className="w-full" asChild>
-                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Anmelden
-                  </Link>
-                </Button>
-                <Button variant="accent" className="w-full" asChild>
-                  <Link to="/auth?mode=register" onClick={() => setMobileMenuOpen(false)}>
-                    Registrieren
-                  </Link>
-                </Button>
+                {user ? (
+                  <>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to={getDashboardPath()} onClick={() => setMobileMenuOpen(false)}>
+                        <User className="w-4 h-4 mr-2" />
+                        Dashboard
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" className="w-full" onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Abmelden
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                        <LogIn className="w-4 h-4 mr-2" />
+                        Anmelden
+                      </Link>
+                    </Button>
+                    <Button variant="accent" className="w-full" asChild>
+                      <Link to="/auth?mode=register" onClick={() => setMobileMenuOpen(false)}>
+                        Registrieren
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

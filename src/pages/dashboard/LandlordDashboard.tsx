@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Building2, Calendar, Euro, Plus,
-  CheckCircle2, XCircle, Clock, TrendingUp, Eye,
+  CheckCircle2, XCircle, Clock, TrendingUp, Pencil,
   FileText, Camera, Shield, Download, AlertTriangle,
   CreditCard, ImageIcon
 } from 'lucide-react';
@@ -26,6 +26,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookingService, contractService, checkinService, checkoutService } from '@/lib/services';
 import { spaceService } from '@/lib/services';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'pending' | 'confirmed' | 'rejected' | 'muted' | 'success' }> = {
   requested: { label: 'Angefragt', variant: 'pending' },
@@ -60,9 +61,10 @@ export default function LandlordDashboard() {
   const [photoType, setPhotoType] = useState<'checkin' | 'checkout'>('checkin');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  // Demo: Use fixed landlord ID
-  const landlordId = '22222222-2222-2222-2222-222222222222';
+  // Use logged-in user's ID
+  const landlordId = user?.id || '';
 
   // Fetch spaces
   const { data: spaces = [], isLoading: isSpacesLoading } = useQuery({
@@ -191,14 +193,14 @@ export default function LandlordDashboard() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-display-sm text-foreground mb-2">
-                  Vermieter-Dashboard
+                  Willkommen{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!
                 </h1>
                 <p className="text-muted-foreground">
-                  Verwalten Sie Ihre Flächen, Buchungen und Verträge.
+                  Verwalten Sie Ihre Flachen, Buchungen und Vertrage.
                 </p>
               </div>
               <Button variant="accent" asChild>
-                <Link to="/landlords/new-space">
+                <Link to="/dashboard/landlord/new-space">
                   <Plus className="w-4 h-4 mr-2" />
                   Neue Fläche inserieren
                 </Link>
@@ -377,9 +379,11 @@ export default function LandlordDashboard() {
                           <span className="font-bold text-foreground">
                             €{space.pricePerDay}/Tag
                           </span>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="w-4 h-4 mr-1" />
-                            Bearbeiten
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/dashboard/landlord/edit-space/${space.id}`}>
+                              <Pencil className="w-4 h-4 mr-1" />
+                              Bearbeiten
+                            </Link>
                           </Button>
                         </div>
                       </div>
@@ -389,7 +393,7 @@ export default function LandlordDashboard() {
                   {/* Add new space card */}
                   <Card variant="bordered" className="flex items-center justify-center min-h-[280px] border-dashed">
                     <Link
-                      to="/landlords/new-space"
+                      to="/dashboard/landlord/new-space"
                       className="text-center p-6 hover:text-primary transition-colors"
                     >
                       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">

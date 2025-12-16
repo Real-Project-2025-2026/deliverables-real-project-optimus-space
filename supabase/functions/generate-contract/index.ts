@@ -90,7 +90,7 @@ function generateContractHtml(data: ContractData): string {
 </head>
 <body>
   <div class="logo">
-    <span>Spacefinder</span>
+    <span>Spacefindr</span>
   </div>
 
   <div class="header">
@@ -181,7 +181,7 @@ function generateContractHtml(data: ContractData): string {
   </div>
 
   <div class="footer">
-    <p>Dieser Vertrag wurde über die Plattform Spacefinder erstellt.<br>
+    <p>Dieser Vertrag wurde über die Plattform Spacefindr erstellt.<br>
     Vertragsnummer: ${data.contractNumber} | Erstellungsdatum: ${new Date().toLocaleDateString('de-DE')}</p>
   </div>
 </body>

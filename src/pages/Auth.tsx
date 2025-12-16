@@ -9,9 +9,89 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { supabase, isOfflineMode } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth, DemoUser } from '@/contexts/AuthContext';
 
 type AuthMode = 'login' | 'register';
 type UserRole = 'tenant' | 'landlord';
+
+// LocalStorage keys for user database
+const USERS_DB_KEY = 'spacefindr_users_db';
+const CURRENT_USER_KEY = 'spacefindr_demo_user';
+
+interface StoredUser {
+  id: string;
+  email: string;
+  password: string; // In production this would be hashed
+  name: string;
+  role: 'tenant' | 'landlord' | 'admin';
+  createdAt: string;
+}
+
+// Get all registered users from localStorage
+function getRegisteredUsers(): StoredUser[] {
+  try {
+    const stored = localStorage.getItem(USERS_DB_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Save users to localStorage
+function saveUsers(users: StoredUser[]): void {
+  localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+}
+
+// Find user by email
+function findUserByEmail(email: string): StoredUser | undefined {
+  const users = getRegisteredUsers();
+  return users.find(u => u.email.toLowerCase() === email.toLowerCase());
+}
+
+// Register a new user
+function registerUser(email: string, password: string, name: string, role: UserRole): StoredUser {
+  const users = getRegisteredUsers();
+
+  // Check if email already exists
+  if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+    throw new Error('Diese E-Mail-Adresse ist bereits registriert');
+  }
+
+  const newUser: StoredUser = {
+    id: crypto.randomUUID(),
+    email: email.toLowerCase(),
+    password, // In production, this would be hashed
+    name,
+    role,
+    createdAt: new Date().toISOString(),
+  };
+
+  users.push(newUser);
+  saveUsers(users);
+
+  return newUser;
+}
+
+// Authenticate user (login)
+function authenticateUser(email: string, password: string): StoredUser {
+  const user = findUserByEmail(email);
+
+  if (!user) {
+    throw new Error('Benutzer mit dieser E-Mail-Adresse nicht gefunden');
+  }
+
+  if (user.password !== password) {
+    throw new Error('Falsches Passwort');
+  }
+
+  return user;
+}
+
+// Set current logged-in user
+function setCurrentUser(user: StoredUser): void {
+  const { password, ...userWithoutPassword } = user;
+  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
+}
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -19,6 +99,7 @@ export default function Auth() {
   const initialRole = searchParams.get('role') === 'landlord' ? 'landlord' : 'tenant';
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signIn } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [role, setRole] = useState<UserRole>(initialRole);
@@ -37,12 +118,34 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      // Offline/Demo mode - simulate authentication
+      // Offline/Demo mode - use localStorage-based authentication
       if (isOfflineMode) {
         // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         if (mode === 'register') {
+          // Validate name
+          if (!formData.name.trim()) {
+            toast({
+              title: 'Fehler',
+              description: 'Bitte geben Sie Ihren Namen ein',
+              variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Validate email
+          if (!formData.email.includes('@')) {
+            toast({
+              title: 'Fehler',
+              description: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
+              variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+          }
+
           // Validate passwords match
           if (formData.password !== formData.confirmPassword) {
             toast({
@@ -65,19 +168,21 @@ export default function Auth() {
             return;
           }
 
-          // Store demo user in localStorage
-          const demoUser = {
-            id: crypto.randomUUID(),
-            email: formData.email,
-            name: formData.name,
-            role: role,
-            createdAt: new Date().toISOString(),
-          };
-          localStorage.setItem('spacefinder_demo_user', JSON.stringify(demoUser));
+          // Register the new user
+          const newUser = registerUser(formData.email, formData.password, formData.name, role);
+
+          // Set as current user (via AuthContext for immediate state update)
+          signIn({
+            id: newUser.id,
+            email: newUser.email,
+            name: newUser.name,
+            role: newUser.role,
+            createdAt: newUser.createdAt,
+          });
 
           toast({
             title: 'Erfolgreich registriert!',
-            description: 'Demo-Modus: Sie wurden angemeldet.',
+            description: `Willkommen bei Spacefindr, ${newUser.name}!`,
           });
 
           // Redirect based on role
@@ -87,50 +192,27 @@ export default function Auth() {
             navigate('/dashboard/tenant');
           }
         } else {
-          // Demo login - accept any email/password with 6+ chars
-          if (formData.password.length < 6) {
-            toast({
-              title: 'Fehler',
-              description: 'Ungültige Anmeldedaten',
-              variant: 'destructive',
-            });
-            setIsLoading(false);
-            return;
-          }
+          // Login - authenticate against stored users
+          const user = authenticateUser(formData.email, formData.password);
 
-          // Check for demo accounts
-          let userRole: 'tenant' | 'landlord' | 'admin' = 'tenant';
-          let userName = 'Demo Benutzer';
-
-          if (formData.email === 'admin@spaceshare.de') {
-            userRole = 'admin';
-            userName = 'Admin User';
-          } else if (formData.email.includes('landlord') ||
-                     formData.email === 'anna@example.com' ||
-                     formData.email === 'thomas@example.com' ||
-                     formData.email === 'sophie@example.com') {
-            userRole = 'landlord';
-            userName = formData.email.split('@')[0];
-          }
-
-          const demoUser = {
-            id: crypto.randomUUID(),
-            email: formData.email,
-            name: userName,
-            role: userRole,
-            createdAt: new Date().toISOString(),
-          };
-          localStorage.setItem('spacefinder_demo_user', JSON.stringify(demoUser));
+          // Set as current user (via AuthContext for immediate state update)
+          signIn({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            createdAt: user.createdAt,
+          });
 
           toast({
             title: 'Willkommen zurück!',
-            description: 'Demo-Modus: Sie wurden erfolgreich angemeldet.',
+            description: `Angemeldet als ${user.name}`,
           });
 
-          // Redirect based on role
-          if (userRole === 'admin') {
+          // Redirect based on stored role
+          if (user.role === 'admin') {
             navigate('/dashboard/admin');
-          } else if (userRole === 'landlord') {
+          } else if (user.role === 'landlord') {
             navigate('/dashboard/landlord');
           } else {
             navigate('/dashboard/tenant');
@@ -238,7 +320,7 @@ export default function Auth() {
             <div className="w-12 h-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
               <Building2 className="w-6 h-6" />
             </div>
-            <span className="text-2xl font-bold">Spacefinder</span>
+            <span className="text-2xl font-bold">Spacefindr</span>
           </Link>
 
           <h1 className="text-display-sm mb-6">
@@ -257,7 +339,7 @@ export default function Auth() {
 
           <div className="space-y-4">
             {[
-              'Über 1.200 Gewerbeflächen',
+              'Gewerbeflächen in München',
               'Sichere Zahlungsabwicklung',
               'Flexibles tageweises Mieten',
             ].map((feature, index) => (
@@ -290,7 +372,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Building2 className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">Spacefinder</span>
+            <span className="text-xl font-bold text-foreground">Spacefindr</span>
           </Link>
 
           <Card className="p-8">

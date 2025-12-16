@@ -13,6 +13,27 @@ export default function Impressum() {
         <div className="container max-w-4xl">
           <h1 className="text-display-sm text-foreground mb-8">Impressum</h1>
 
+          {/* Demo Notice */}
+          <Card className="p-6 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center flex-shrink-0">
+                <span className="text-amber-600 dark:text-amber-400 text-lg">!</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                  Demo-Anwendung
+                </h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Dies ist eine nicht-kommerzielle Demo-Anwendung, entwickelt im Rahmen des Kurses
+                  <strong> Real Project Digitalization</strong> an der <strong>Hochschule München (HM)</strong>.
+                  Team: <strong>OptimusSpace</strong>.
+                  Es handelt sich nicht um ein echtes Geschäftsangebot.
+                  Alle Angaben sind fiktiv und dienen ausschließlich zu Demonstrationszwecken.
+                </p>
+              </div>
+            </div>
+          </Card>
+
           <Card className="p-8 space-y-8">
             {/* Angaben gemäß § 5 TMG */}
             <section>
@@ -20,7 +41,7 @@ export default function Impressum() {
                 Angaben gemäß § 5 TMG
               </h2>
               <div className="space-y-2 text-muted-foreground">
-                <p className="font-semibold text-foreground">Spacefinder GmbH</p>
+                <p className="font-semibold text-foreground">Spacefindr GmbH</p>
                 <p>Musterstraße 123</p>
                 <p>10115 Berlin</p>
                 <p>Deutschland</p>
@@ -60,13 +81,13 @@ export default function Impressum() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-primary" />
-                  <a href="mailto:info@spacefinder.de" className="hover:text-primary transition-colors">
-                    info@spacefinder.de
+                  <a href="mailto:info@spacefindr.de" className="hover:text-primary transition-colors">
+                    info@spacefindr.de
                   </a>
                 </div>
                 <div className="flex items-center gap-3">
                   <Globe className="w-5 h-5 text-primary" />
-                  <span>www.spacefinder.de</span>
+                  <span>www.spacefindr.de</span>
                 </div>
               </div>
             </section>

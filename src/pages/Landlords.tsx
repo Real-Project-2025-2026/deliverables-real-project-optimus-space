@@ -27,8 +27,8 @@ const benefits = [
   },
   {
     icon: Users,
-    title: 'Große Reichweite',
-    description: 'Erreichen Sie tausende potenzielle Mieter in ganz Deutschland.',
+    title: 'Einfache Vermittlung',
+    description: 'Erreichen Sie interessierte Mieter direkt über unsere Plattform.',
   },
 ];
 
@@ -195,10 +195,10 @@ export default function Landlords() {
         <div className="container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
             {[
-              { value: '500+', label: 'Aktive Vermieter' },
-              { value: '15.000€', label: 'Ø Jahreseinnahmen' },
-              { value: '24h', label: 'Ø Antwortzeit' },
-              { value: '4.8/5', label: 'Vermieterbewertung' },
+              { value: '6+', label: 'Aktive Flächen' },
+              { value: '1+', label: 'Städte' },
+              { value: '<24h', label: 'Antwortzeit' },
+              { value: '95%', label: 'Zufriedenheit' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-2xl md:text-3xl font-bold text-foreground">{stat.value}</div>
@@ -220,7 +220,7 @@ export default function Landlords() {
             <p className="text-lg text-background/70 mb-8">
               Registrieren Sie sich kostenlos und erstellen Sie Ihr erstes Inserat in wenigen Minuten.
             </p>
-            <Button variant="accent" size="xl" asChild>
+            <Button variant="accent" size="xl" className="bg-white text-foreground hover:bg-white/90" asChild>
               <Link to="/auth?mode=register&role=landlord">
                 Kostenlos starten
                 <ArrowRight className="w-5 h-5 ml-2" />

@@ -138,7 +138,7 @@ export default function HowItWorks() {
                 animate={{ opacity: 1, y: 0 }}
                 className="text-display-sm md:text-display text-foreground mb-6"
               >
-                So funktioniert <span className="text-primary">Spacefinder</span>
+                So funktioniert <span className="text-primary">Spacefindr</span>
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -247,7 +247,7 @@ export default function HowItWorks() {
             <div className="text-center mb-12">
               <h2 className="text-display-sm text-foreground mb-4">Ihre Vorteile</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Warum Spacefinder die beste Wahl für Ihre Gewerbeflächen-Vermietung ist
+                Warum Spacefindr die beste Wahl für Ihre Gewerbeflächen-Vermietung ist
               </p>
             </div>
 

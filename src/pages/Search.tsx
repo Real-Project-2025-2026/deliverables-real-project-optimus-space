@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { SearchFilters } from '@/components/spaces/SearchFilters';
+import { SearchFilters, FiltersState } from '@/components/spaces/SearchFilters';
 import { SpaceCard } from '@/components/spaces/SpaceCard';
 import { MapView } from '@/components/spaces/MapView';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,60 @@ type ViewMode = 'split' | 'list' | 'map';
 export default function Search() {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
-  const { data: spaces = [], isLoading, isError } = useQuery({
+  const [filters, setFilters] = useState<FiltersState>({
+    query: '',
+    categories: [],
+    amenities: [],
+    priceMin: null,
+    priceMax: null,
+    sizeMin: null,
+    sizeMax: null,
+  });
+
+  const { data: allSpaces = [], isLoading, isError } = useQuery({
     queryKey: ['spaces', 'all'],
     queryFn: fetchSpaces,
   });
+
+  // Apply filters to spaces
+  const spaces = useMemo(() => {
+    return allSpaces.filter(space => {
+      // Text search (query)
+      if (filters.query) {
+        const q = filters.query.toLowerCase();
+        const matchesQuery =
+          space.title.toLowerCase().includes(q) ||
+          space.description.toLowerCase().includes(q) ||
+          space.city.toLowerCase().includes(q) ||
+          space.address.toLowerCase().includes(q) ||
+          space.postalCode.includes(q);
+        if (!matchesQuery) return false;
+      }
+
+      // Category filter
+      if (filters.categories.length > 0) {
+        if (!filters.categories.includes(space.category)) return false;
+      }
+
+      // Amenities filter (must have ALL selected amenities)
+      if (filters.amenities.length > 0) {
+        const hasAllAmenities = filters.amenities.every(amenity =>
+          space.amenities.includes(amenity)
+        );
+        if (!hasAllAmenities) return false;
+      }
+
+      // Price filter
+      if (filters.priceMin !== null && space.pricePerDay < filters.priceMin) return false;
+      if (filters.priceMax !== null && space.pricePerDay > filters.priceMax) return false;
+
+      // Size filter
+      if (filters.sizeMin !== null && space.size < filters.sizeMin) return false;
+      if (filters.sizeMax !== null && space.size > filters.sizeMax) return false;
+
+      return true;
+    });
+  }, [allSpaces, filters]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -29,7 +79,7 @@ export default function Search() {
         {/* Search header */}
         <div className="bg-surface border-b border-border">
           <div className="container py-4">
-            <SearchFilters />
+            <SearchFilters onFiltersChange={setFilters} />
             
             {/* View mode toggle & results count */}
             <div className="flex items-center justify-between mt-4">

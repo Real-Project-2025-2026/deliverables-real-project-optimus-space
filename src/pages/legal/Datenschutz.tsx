@@ -12,6 +12,27 @@ export default function Datenschutz() {
         <div className="container max-w-4xl">
           <h1 className="text-display-sm text-foreground mb-8">Datenschutzerklärung</h1>
 
+          {/* Demo Notice */}
+          <Card className="p-6 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center flex-shrink-0">
+                <span className="text-amber-600 dark:text-amber-400 text-lg">!</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                  Demo-Anwendung
+                </h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Dies ist eine nicht-kommerzielle Demo-Anwendung, entwickelt im Rahmen des Kurses
+                  <strong> Real Project Digitalization</strong> an der <strong>Hochschule München (HM)</strong>.
+                  Team: <strong>OptimusSpace</strong>.
+                  Es handelt sich nicht um ein echtes Geschäftsangebot.
+                  Diese Datenschutzerklärung dient nur zu Demonstrationszwecken und hat keine rechtliche Bindung.
+                </p>
+              </div>
+            </div>
+          </Card>
+
           <Card className="p-8 space-y-8">
             {/* Einleitung */}
             <section>
@@ -38,13 +59,13 @@ export default function Datenschutz() {
               <div className="space-y-4 text-muted-foreground">
                 <p>Die verantwortliche Stelle für die Datenverarbeitung auf dieser Website ist:</p>
                 <div className="bg-muted/50 p-4 rounded-lg">
-                  <p className="font-semibold text-foreground">Spacefinder GmbH</p>
+                  <p className="font-semibold text-foreground">Spacefindr GmbH</p>
                   <p>Musterstraße 123</p>
                   <p>10115 Berlin</p>
                   <p className="mt-2">
                     E-Mail:{' '}
-                    <a href="mailto:datenschutz@spacefinder.de" className="text-primary hover:underline">
-                      datenschutz@spacefinder.de
+                    <a href="mailto:datenschutz@spacefindr.de" className="text-primary hover:underline">
+                      datenschutz@spacefindr.de
                     </a>
                   </p>
                   <p>Telefon: +49 (0) 30 123456789</p>
@@ -66,13 +87,13 @@ export default function Datenschutz() {
                 <p>Wir haben einen Datenschutzbeauftragten benannt:</p>
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <p className="font-semibold text-foreground">Datenschutzbeauftragter</p>
-                  <p>Spacefinder GmbH</p>
+                  <p>Spacefindr GmbH</p>
                   <p>Musterstraße 123</p>
                   <p>10115 Berlin</p>
                   <p className="mt-2">
                     E-Mail:{' '}
-                    <a href="mailto:dsb@spacefinder.de" className="text-primary hover:underline">
-                      dsb@spacefinder.de
+                    <a href="mailto:dsb@spacefindr.de" className="text-primary hover:underline">
+                      dsb@spacefindr.de
                     </a>
                   </p>
                 </div>

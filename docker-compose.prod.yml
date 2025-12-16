@@ -1,4 +1,4 @@
-# Production Docker Compose Configuration for Spacefinder
+# Production Docker Compose Configuration for Spacefindr
 #
 # This configuration is optimized for 50-100 concurrent users
 #
@@ -145,7 +145,7 @@ services:
       GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
       GOTRUE_SMTP_USER: ${SMTP_USER}
       GOTRUE_SMTP_PASS: ${SMTP_PASS}
-      GOTRUE_SMTP_SENDER_NAME: Spacefinder
+      GOTRUE_SMTP_SENDER_NAME: Spacefindr
       GOTRUE_RATE_LIMIT_EMAIL_SENT: "4"
     depends_on:
       db:
@@ -309,4 +309,4 @@ volumes:
 
 networks:
   default:
-    name: spacefinder_network
+    name: spacefindr_network

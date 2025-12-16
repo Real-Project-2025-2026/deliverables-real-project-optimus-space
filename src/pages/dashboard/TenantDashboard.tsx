@@ -38,6 +38,7 @@ import {
   roomAreaLabels,
 } from '@/lib/services';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'pending' | 'confirmed' | 'rejected' | 'muted' | 'success' }> = {
   requested: { label: 'Angefragt', variant: 'pending' },
@@ -58,7 +59,8 @@ const paymentStatusConfig: Record<PaymentStatus, { label: string; color: string 
 };
 
 export default function TenantDashboard() {
-  const tenantId = '11111111-1111-1111-1111-111111111111';
+  const { user } = useAuth();
+  const tenantId = user?.id || '';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +69,7 @@ export default function TenantDashboard() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [photoType, setPhotoType] = useState<'checkin' | 'checkout'>('checkin');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'overview' | 'processing' | 'success' | 'failed'>('overview');
@@ -102,12 +105,15 @@ export default function TenantDashboard() {
     enabled: !!selectedBooking && photoDialogOpen && photoType === 'checkout',
   });
 
-  // Stats
+  // Filter out cancelled bookings for display
+  const visibleBookings = bookings.filter(b => b.status !== 'cancelled');
+
+  // Stats (only count visible bookings)
   const stats = {
-    total: bookings.length,
-    pending: bookings.filter(b => b.status === 'pending' || b.status === 'requested').length,
-    confirmed: bookings.filter(b => b.status === 'confirmed' || b.status === 'in_progress').length,
-    completed: bookings.filter(b => b.status === 'completed').length,
+    total: visibleBookings.length,
+    pending: visibleBookings.filter(b => b.status === 'pending' || b.status === 'requested').length,
+    confirmed: visibleBookings.filter(b => b.status === 'confirmed' || b.status === 'in_progress').length,
+    completed: visibleBookings.filter(b => b.status === 'completed').length,
   };
 
   // Handlers
@@ -231,6 +237,49 @@ export default function TenantDashboard() {
     }
   };
 
+  // Cancel booking mutation
+  const cancelMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingService.cancel(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({
+        title: 'Anfrage zurückgenommen',
+        description: 'Ihre Buchungsanfrage wurde erfolgreich storniert.',
+      });
+      setCancelDialogOpen(false);
+      setSelectedBooking(null);
+    },
+    onError: () => {
+      toast({
+        title: 'Fehler',
+        description: 'Die Anfrage konnte nicht storniert werden.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleOpenCancelDialog = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelBooking = () => {
+    if (selectedBooking) {
+      cancelMutation.mutate(selectedBooking.id);
+    }
+  };
+
+  // Check if booking can be cancelled by tenant
+  const canCancelBooking = (booking: Booking) => {
+    // Tenant can cancel if status is requested, pending, or confirmed (before start date)
+    const now = new Date();
+    const startDate = new Date(booking.startDate);
+    return (
+      (booking.status === 'requested' || booking.status === 'pending') ||
+      (booking.status === 'confirmed' && now < startDate)
+    );
+  };
+
   const getContractForBooking = (bookingId: string) => {
     return contracts.find(c => c.bookingId === bookingId);
   };
@@ -262,7 +311,7 @@ export default function TenantDashboard() {
             className="mb-8"
           >
             <h1 className="text-display-sm text-foreground mb-2">
-              Willkommen zurück, Max!
+              Willkommen zuruck{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!
             </h1>
             <p className="text-muted-foreground">
               Verwalten Sie Ihre Buchungen, Zahlungen und Dokumente.
@@ -328,7 +377,7 @@ export default function TenantDashboard() {
               {isError && (
                 <p className="text-muted-foreground">Buchungen konnten nicht geladen werden.</p>
               )}
-              {!isLoading && !isError && bookings.map((booking, index) => {
+              {!isLoading && !isError && visibleBookings.map((booking, index) => {
                 const status = statusConfig[booking.status];
                 const paymentStatus = paymentStatusConfig[booking.paymentStatus];
                 const contract = getContractForBooking(booking.id);
@@ -457,6 +506,19 @@ export default function TenantDashboard() {
                               Check-out Fotos
                             </Button>
                           )}
+
+                          {/* Cancel booking */}
+                          {canCancelBooking(booking) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleOpenCancelDialog(booking)}
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Stornieren
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -464,7 +526,7 @@ export default function TenantDashboard() {
                 );
               })}
 
-              {!isLoading && !isError && bookings.length === 0 && (
+              {!isLoading && !isError && visibleBookings.length === 0 && (
                 <Card variant="bordered" className="p-8 text-center">
                   <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="font-semibold text-foreground mb-2">Keine Buchungen</h3>
@@ -698,6 +760,68 @@ export default function TenantDashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhotoDialogOpen(false)}>
               Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Booking Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Buchung stornieren</DialogTitle>
+            <DialogDescription>
+              Möchten Sie diese Buchungsanfrage wirklich zurücknehmen?
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-4">
+                <h4 className="font-medium mb-2">{selectedBooking.spaceName}</h4>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>
+                    Zeitraum: {selectedBooking.startDate.toLocaleDateString('de-DE')} - {selectedBooking.endDate.toLocaleDateString('de-DE')}
+                  </p>
+                  <p>Gesamtpreis: €{selectedBooking.totalPrice}</p>
+                </div>
+              </div>
+
+              {selectedBooking.status === 'confirmed' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                  <strong>Hinweis:</strong> Diese Buchung wurde bereits bestätigt.
+                  Bei einer Stornierung können Stornogebühren anfallen.
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              disabled={cancelMutation.isPending}
+              className="flex-1"
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelBooking}
+              disabled={cancelMutation.isPending}
+              className="flex-1"
+            >
+              {cancelMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Wird storniert...
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Stornieren
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

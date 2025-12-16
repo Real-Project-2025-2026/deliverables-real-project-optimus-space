@@ -29,11 +29,11 @@ const faqCategories = [
     title: 'Erste Schritte',
     questions: [
       {
-        q: 'Wie erstelle ich ein Konto bei Spacefinder?',
+        q: 'Wie erstelle ich ein Konto bei Spacefindr?',
         a: 'Die Registrierung ist einfach und kostenlos. Klicken Sie auf "Registrieren" oben rechts, geben Sie Ihre E-Mail-Adresse ein und wählen Sie, ob Sie Flächen mieten oder vermieten möchten. Nach der Bestätigung Ihrer E-Mail können Sie sofort loslegen.',
       },
       {
-        q: 'Ist die Nutzung von Spacefinder kostenlos?',
+        q: 'Ist die Nutzung von Spacefindr kostenlos?',
         a: 'Die Registrierung und Suche nach Flächen ist völlig kostenlos. Erst bei einer erfolgreichen Buchung fallen Servicegebühren an: Für Mieter beträgt die Gebühr 10% des Mietpreises, für Vermieter 5% bei erfolgreicher Vermittlung.',
       },
       {
@@ -182,7 +182,7 @@ export default function FAQ() {
                   Häufig gestellte Fragen
                 </h1>
                 <p className="text-lg text-muted-foreground">
-                  Finden Sie Antworten auf die häufigsten Fragen rund um Spacefinder
+                  Finden Sie Antworten auf die häufigsten Fragen rund um Spacefindr
                 </p>
               </motion.div>
             </div>

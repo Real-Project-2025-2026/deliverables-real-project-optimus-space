@@ -1,4 +1,4 @@
-# Spacefinder
+so ich # Spacefinder
 
 Eine moderne Plattform zur tageweisen Vermietung von Gewerbeflächen. Finden und buchen Sie Büros, Lager, Pop-up Stores, Event-Locations und mehr – flexibel und unkompliziert.
 
