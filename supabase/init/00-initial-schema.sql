@@ -29,9 +29,8 @@ GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role, supabase_auth_a
 GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role, supabase_storage_admin;
 GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role;
 
--- Enable extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Note: btree_gist extension causes permission errors with Supabase image hooks
+-- EXCLUDE constraints are replaced with application-level validation
 
 -- Default privileges
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
@@ -54,7 +53,3 @@ GRANT ALL ON ALL FUNCTIONS IN SCHEMA storage TO supabase_storage_admin;
 
 -- Grant superuser to storage admin for migrations
 ALTER ROLE supabase_storage_admin WITH SUPERUSER;
-
--- Workaround for GoTrue migration bug (uuid = text comparison)
--- Mark the problematic migration as complete to skip it
-INSERT INTO auth.schema_migrations (version) VALUES ('20221208132122') ON CONFLICT DO NOTHING;

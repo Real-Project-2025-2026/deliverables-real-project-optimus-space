@@ -23,7 +23,13 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(docker logs:*)",
-      "Bash(nslookup:*)"
+      "Bash(nslookup:*)",
+      "Bash(test:*)",
+      "Bash(docker volume prune:*)",
+      "Bash(dir \"$USERPROFILE\\.cloudflared\")",
+      "Bash(type:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }

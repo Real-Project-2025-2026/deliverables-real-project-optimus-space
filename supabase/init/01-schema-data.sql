@@ -5,7 +5,7 @@ SET ROLE supabase_admin;
 
 -- Users (lightweight profile table, not auth.users)
 CREATE TABLE IF NOT EXISTS public.users (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
   name text NOT NULL,
   role text NOT NULL CHECK (role IN ('tenant','landlord','admin')),
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 
 -- Spaces available for daily rent
 CREATE TABLE IF NOT EXISTS public.spaces (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text NOT NULL,
   address text NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS public.spaces (
 
 -- Bookings for spaces
 CREATE TABLE IF NOT EXISTS public.bookings (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id uuid NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
   space_name text NOT NULL,
   space_image text NOT NULL DEFAULT '/placeholder.svg',

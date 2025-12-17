@@ -33,7 +33,7 @@ ALTER TABLE public.bookings ADD CONSTRAINT bookings_status_check
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.contracts (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   landlord_id uuid NOT NULL REFERENCES public.users(id),
   tenant_id uuid NOT NULL REFERENCES public.users(id),
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.contracts (
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.checkin_photos (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   uploaded_by uuid NOT NULL REFERENCES public.users(id),
 
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS public.checkin_photos (
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.checkout_photos (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   uploaded_by uuid NOT NULL REFERENCES public.users(id),
 
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS public.checkout_photos (
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.damage_reports (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   reported_by uuid NOT NULL REFERENCES public.users(id),
 
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS public.damage_reports (
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.vacancy_reports (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Reporter information (no account required)
   reporter_name text NOT NULL,
@@ -202,7 +202,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS vacancy_reports_unique_address
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.payment_intents (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
 
   -- Amount details
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS public.payment_intents (
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.space_availability (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id uuid NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
 
   -- Availability period
@@ -250,11 +250,10 @@ CREATE TABLE IF NOT EXISTS public.space_availability (
 
   created_at timestamptz NOT NULL DEFAULT now(),
 
-  -- Ensure no overlapping periods for same space
-  CONSTRAINT no_date_overlap EXCLUDE USING gist (
-    space_id WITH =,
-    daterange(start_date, end_date, '[]') WITH &&
-  ) WHERE (availability_type = 'blocked')
+  -- Ensure end_date is after or equal to start_date
+  -- Note: Overlap validation must be done in application layer
+  -- (EXCLUDE constraints require btree_gist which has permission issues)
+  CONSTRAINT valid_date_range CHECK (end_date >= start_date)
 );
 
 -- Index for faster availability queries
@@ -282,7 +281,7 @@ ALTER TABLE public.spaces
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.notifications (
-  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
 
   type text NOT NULL, -- 'booking_request', 'booking_confirmed', 'payment_received', etc.
@@ -379,15 +378,15 @@ CREATE POLICY notifications_update ON public.notifications FOR UPDATE USING (tru
 -- ============================================
 
 -- Add update policy for bookings (was missing)
-CREATE POLICY IF NOT EXISTS bookings_update_all ON public.bookings FOR UPDATE USING (true);
-CREATE POLICY IF NOT EXISTS bookings_delete_all ON public.bookings FOR DELETE USING (true);
+CREATE POLICY bookings_update_all ON public.bookings FOR UPDATE USING (true);
+CREATE POLICY bookings_delete_all ON public.bookings FOR DELETE USING (true);
 
 -- Add update policy for spaces
-CREATE POLICY IF NOT EXISTS spaces_update_all ON public.spaces FOR UPDATE USING (true);
-CREATE POLICY IF NOT EXISTS spaces_delete_all ON public.spaces FOR DELETE USING (true);
+CREATE POLICY spaces_update_all ON public.spaces FOR UPDATE USING (true);
+CREATE POLICY spaces_delete_all ON public.spaces FOR DELETE USING (true);
 
 -- Add update policy for users
-CREATE POLICY IF NOT EXISTS users_update_all ON public.users FOR UPDATE USING (true);
+CREATE POLICY users_update_all ON public.users FOR UPDATE USING (true);
 
 -- ============================================
 -- HELPER FUNCTIONS
