@@ -29,6 +29,7 @@ services:
         config:
           origins:
             - https://demo.spacefindr.de
+            - https://www.demo.spacefindr.de
             - http://localhost:3000
             - http://localhost:3002
           credentials: true
@@ -63,6 +64,7 @@ services:
         config:
           origins:
             - https://demo.spacefindr.de
+            - https://www.demo.spacefindr.de
             - http://localhost:3000
             - http://localhost:3002
           credentials: true
@@ -95,6 +97,7 @@ services:
         config:
           origins:
             - https://demo.spacefindr.de
+            - https://www.demo.spacefindr.de
             - http://localhost:3000
             - http://localhost:3002
           credentials: true
@@ -127,6 +130,7 @@ services:
         config:
           origins:
             - https://demo.spacefindr.de
+            - https://www.demo.spacefindr.de
             - http://localhost:3000
             - http://localhost:3002
           credentials: true
