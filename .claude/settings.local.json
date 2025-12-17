@@ -18,7 +18,12 @@
       "Bash(docker compose:*)",
       "Bash(npm run build:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(cloudflared:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(docker logs:*)",
+      "Bash(nslookup:*)"
     ]
   }
 }

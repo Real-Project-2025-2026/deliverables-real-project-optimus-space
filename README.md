@@ -37,36 +37,117 @@ src/
 └── data/             # Mock-Daten für Demo-Modus
 ```
 
-## Schnellstart
+## Voraussetzungen
+
+- **Node.js 20+** - [nodejs.org](https://nodejs.org/)
+- **Docker Desktop** - [docker.com](https://www.docker.com/products/docker-desktop/) (für Deployment)
+- **Cloudflared** - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) (optional, für öffentlichen Zugang)
+
+## Installation
 
 ```bash
-# Repository klonen
+# 1. Repository klonen
 git clone https://github.com/luca4protection/rentaroom-daily.git
 cd rentaroom-daily
 
-# Abhängigkeiten installieren
+# 2. Abhängigkeiten installieren
 npm install
+```
 
+## Lokale Entwicklung (Demo-Modus)
+
+```bash
 # Entwicklungsserver starten
 npm run dev
 ```
 
-App läuft unter **http://localhost:8080** im Demo-Modus.
+App läuft unter **http://localhost:8080** mit Mock-Daten.
 
-## Deployment
+## Produktions-Deployment mit Docker
 
-### Cloudflare Pages
+### 1. Docker Desktop starten
 
-| Einstellung | Wert |
-|-------------|------|
-| Build command | `npm run build` |
-| Build output | `dist` |
-| Node.js | `20` |
+Stelle sicher, dass Docker Desktop läuft.
 
-### Docker
+### 2. Demo-Modus konfigurieren
+
+In `.env` muss für Demo-Modus stehen:
+```
+VITE_SUPABASE_URL=http://localhost:8000
+```
+
+### 3. Container bauen und starten
 
 ```bash
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+App läuft unter **http://localhost:8080**.
+
+### Container stoppen
+
+```bash
+docker compose -f docker-compose.local.yml down
+```
+
+## Cloudflare Tunnel (öffentlicher Zugang)
+
+### 1. Cloudflared installieren und einloggen
+
+```bash
+# Bei Cloudflare anmelden (Browser öffnet sich)
+cloudflared tunnel login
+```
+
+### 2. Tunnel erstellen
+
+```bash
+cloudflared tunnel create spacefindr-demo
+```
+
+### 3. Tunnel-Config erstellen
+
+Erstelle `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <TUNNEL-ID>
+credentials-file: ~/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: demo.spacefindr.de
+    service: http://localhost:8080
+  - service: http_status:404
+```
+
+### 4. DNS-Eintrag setzen
+
+```bash
+cloudflared tunnel route dns spacefindr-demo demo.spacefindr.de
+```
+
+Falls der Eintrag existiert:
+```bash
+cloudflared tunnel route dns --overwrite-dns spacefindr-demo demo.spacefindr.de
+```
+
+### 5. Tunnel starten
+
+```bash
+cloudflared tunnel run spacefindr-demo
+```
+
+Die App ist jetzt unter **https://demo.spacefindr.de** erreichbar.
+
+## Vollständiger Start-Befehl
+
+Nach Ersteinrichtung reichen diese Befehle:
+
+```bash
+# Docker Container starten
 docker compose -f docker-compose.local.yml up -d
+
+# Cloudflare Tunnel starten
+cloudflared tunnel run spacefindr-demo
 ```
 
 ## Features
@@ -75,11 +156,16 @@ docker compose -f docker-compose.local.yml up -d
 - **Vermieter:** Flächen erstellen, Buchungen verwalten
 - **Karte:** Interaktive OpenStreetMap-Ansicht
 - **Responsive:** Desktop und Mobile
-- **Offline-Modus:** Funktioniert ohne Backend mit Demo-Daten
+- **Demo-Modus:** Funktioniert ohne Backend mit Mock-Daten
 
-## Dokumentation
+## Konfiguration
 
-Weitere Details im [Wiki](https://github.com/luca4protection/rentaroom-daily/wiki).
+| Datei | Beschreibung |
+|-------|--------------|
+| `.env` | Umgebungsvariablen (Supabase URLs, Keys) |
+| `docker-compose.local.yml` | Docker-Config für Demo-Modus |
+| `docker-compose.yml` | Vollständige Supabase-Umgebung |
+| `~/.cloudflared/config.yml` | Cloudflare Tunnel-Config |
 
 ## Lizenz
 
