@@ -16,7 +16,9 @@
       "Bash(curl:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd new features and update configuration\n\n- Add new pages: Contact, FAQ, HelpCenter, HowItWorks, ReportVacancy\n- Add legal pages: AGB, Datenschutz, Impressum\n- Add AdminDashboard\n- Add service layer for bookings, checkins, contracts, payments, spaces\n- Add Supabase edge function for contract generation\n- Add extended database schema\n- Update CORS config for spacefindr.de\n- Various UI and component updates\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(docker compose:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
