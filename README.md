@@ -73,7 +73,7 @@ docker compose -f docker-compose.local.yml down
 
 ## Entwicklung
 
-Das Frontend wurde ursprünglich mit [Lovable](https://lovable.dev) erstellt. Backend und Frontend wurden anschließend mit [Claude Code](https://claude.ai/claude-code) erweitert und angepasst.
+Das Frontend wurde ursprünglich mit [Lovable](https://lovable.dev) erstellt. Backend und Frontend wurden anschließend mit [Claude Code](https://www.claude.com/de-de/product/claude-code) erweitert und angepasst.
 
 ## Lizenz
 
